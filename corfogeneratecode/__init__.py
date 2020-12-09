@@ -1,0 +1,1 @@
+from .corfogeneratecode import CorfoGenerateXBlock

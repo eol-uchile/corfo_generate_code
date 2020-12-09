@@ -1,0 +1,21 @@
+<div class="corfogeneratecode_block">
+   <h2>{{xblock.display_name}}</h2>
+   {% if passed is False %}
+      No ha pasado el curso
+   {% else %}
+      {% if code == '' %}
+         <input name="corfo-get-code" type="button" style="width: 160px;margin-left: auto;" value="Obtener Codigo">
+         <div id="ui-loading-corfogeneratecode-load" class="ui-loading is-hidden" style="box-shadow: none;">
+            <p>
+            <span class="spin">
+               <span class="icon fa fa-refresh" aria-hidden="true"></span>
+            </span>
+            <span class="copy">Cargando</span>
+            </p>
+         </div>
+      {% else %}
+         <label style="cursor: default;">Codigo: {{ code }} </label></br>
+      {% endif %}
+      <p class="corfogeneratecode_error"></p>
+   {% endif %}
+</div>
