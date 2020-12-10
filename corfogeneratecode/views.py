@@ -62,7 +62,7 @@ def generate_code(request):
         corfouser.code = code
         corfouser.save()
         return JsonResponse({'result':'success', 'code': code}, safe=False)
-    return JsonResponse({'result':'error', 'status': 5, 'message': 'Usuario no ha iniciado sesión o error en parámatros, actualice la página e intente nuevamente, si el problema persiste contáctese con mesa de ayuda.'}, safe=False)
+    return JsonResponse({'result':'error', 'status': 5, 'message': 'Usuario no ha iniciado sesión o error en parámetros, actualice la página e intente nuevamente, si el problema persiste contáctese con mesa de ayuda.'}, safe=False)
 
 def get_user_rut(corfouser):
     """
