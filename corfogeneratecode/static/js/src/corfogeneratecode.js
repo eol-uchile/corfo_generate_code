@@ -14,8 +14,9 @@ function CorfoGenerateXBlock(runtime, element, settings) {
     
     $(element).find('input[name=corfo-get-code]').live('click', function(e) {
         /* 
-            .
+            Get corfo code from api
         */
+        $(element).find('#ui-loading-corfogeneratecode-load').show()
         e.currentTarget.disabled = true;
         $.ajax({
             type: "GET",
@@ -27,13 +28,17 @@ function CorfoGenerateXBlock(runtime, element, settings) {
             },
             success: function(response) {
                 if(response.result == 'success'){
-
+                    $element.find('.corfo_code')[0].textContent = 'Su código corfo es: ' + response.code;
+                    $(element).find('.corfo_code').show();
+                    $element.find('.corfogeneratecode_error')[0].textContent = '';
                 }
                 else{
                     $element.find('.corfogeneratecode_error')[0].textContent = response.message;
                 }
+                $(element).find('#ui-loading-corfogeneratecode-load').hide()
             },
             error: function() {
+                $(element).find('#ui-loading-corfogeneratecode-load').hide()
                 alert("Error inesperado ha ocurrido. Actualice la página e intente nuevamente")
             }
         });

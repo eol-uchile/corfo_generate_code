@@ -29,7 +29,7 @@ def generate_code(request):
             return JsonResponse({'result':'error', 'status': 6, 'message': 'Un error inesperado ha ocurrido, actualice la página e intente nuevamente, si el problema persiste contáctese con mesa de ayuda.'}, safe=False)
         if passed is False:
             logger.error('CorfoGenerateCode - User dont passed course, user: {}, course: {}'.format(request.user, str(course_key)))
-            return JsonResponse({'result':'error', 'status': 0, 'message': 'Usuario no ha aprobado el curso todavia.'}, safe=False)
+            return JsonResponse({'result':'error', 'status': 0, 'message': 'Usuario no ha aprobado el curso todavía.'}, safe=False)
         corfouser, created = CorfoCodeUser.objects.get_or_create(user=request.user, course=course_key)
         if corfouser.code != '':
             logger.info('CorfoGenerateCode - User already have code, user: {}, course: {}'.format(request.user, str(course_key)))
@@ -51,7 +51,7 @@ def generate_code(request):
         if grade_cutoff is None:
             return JsonResponse({'result':'error', 'status': 7, 'message': 'Un error inesperado ha ocurrido, actualice la página e intente nuevamente, si el problema persiste contáctese con mesa de ayuda.'}, safe=False)
         score = grade_percent_scaled(percent, grade_cutoff)
-        response = validate_mooc(token, code, score, id_content, content, user_rut)
+        response = validate_mooc(token, code, str(score), id_content, content, user_rut)
         if response['result'] == 'error':
             logger.error('CorfoGenerateCode - Error to validate api, user: {}, course: {}, response: {}'.format(request.user, str(course_key), response))
             return JsonResponse({'result':'error', 'status': 3, 'message': 'Un error inesperado ha ocurrido, actualice la página e intente nuevamente, si el problema persiste contáctese con mesa de ayuda.'}, safe=False)
@@ -62,7 +62,7 @@ def generate_code(request):
         corfouser.code = code
         corfouser.save()
         return JsonResponse({'result':'success', 'code': code}, safe=False)
-    return JsonResponse({'result':'error', 'status': 5, 'message': 'Usuario no ha iniciado sesion o error en paramatros, actualice la página e intente nuevamente, si el problema persiste contáctese con mesa de ayuda.'}, safe=False)
+    return JsonResponse({'result':'error', 'status': 5, 'message': 'Usuario no ha iniciado sesión o error en parámatros, actualice la página e intente nuevamente, si el problema persiste contáctese con mesa de ayuda.'}, safe=False)
 
 def get_user_rut(corfouser):
     """
@@ -100,7 +100,7 @@ def user_course_passed(user, course_key):
     """
        Get if user passed course with percert
     """
-    response = CourseGradeFactory().read(user, course_key=course_key, create_if_needed=False)
+    response = CourseGradeFactory().read(user, course_key=course_key)
     if response is None:
         logger.error('CorfoGenerateCode - Error to get CourseGradeFactory().read(...), user: {}, course: {}'.format(user, str(course_key)))
         return None, None
@@ -122,7 +122,7 @@ def get_token():
     r = requests.get(
         settings.CORFOGENERATE_URL_TOKEN,
         data=json.dumps(body),
-        headers=headers, verify=False)
+        headers=headers)
     if r.status_code == 200:
         data = r.json()
         print(data)
@@ -174,7 +174,7 @@ def validate_mooc(token, code, score, id_content, content, user_rut):
     r = requests.post(
         settings.CORFOGENERATE_URL_VALIDATE,
         data=json.dumps(body),
-        headers=headers, verify=False)
+        headers=headers)
     if r.status_code == 200:
         data = r.json()
         data['result'] = 'success'

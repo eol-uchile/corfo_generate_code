@@ -1,7 +1,14 @@
 <div class="corfogeneratecode_block">
+    {% if xblock.id_content == '0' or xblock.content == '' %}
+    <div class="alert alert-warning">
+        <p>El componente <strong>no se ha configurado correctamente</strong>.</p>
+        <p>Edita nuevamente, y revisa que todos los campos se han rellenado.</p>
+    </div>
+    {% else %}
     <div class="alert alert-info">
-        <p>El botón para <u>ver puntaje</u> de este XBlock estará únicamente en el LMS</p>
-        <p>En este módulo el <u>estudiante</u> solo podrá acceder a su <u>formulario</u> y <u>calificación</u></p>
-    </div>    
+        <p>El botón para <u>Obtener Código</u> de este XBlock estará únicamente en el LMS</p>
+        <p>En este módulo el <u>estudiante</u> podrá obtener su código de corfo si ha compoletado el curso.</p>
+    </div>
+    {% endif %}
 </div>    
 

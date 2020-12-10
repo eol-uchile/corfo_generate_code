@@ -1,4 +1,4 @@
-# EOL Zoom XBlock
+# Corfo Generate Code XBlock
 
 ![https://github.com/eol-uchile/corfo_generate_code/actions](https://github.com/eol-uchile/corfo_generate_code/workflows/Python%20application/badge.svg)
 
