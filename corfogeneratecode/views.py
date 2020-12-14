@@ -133,6 +133,7 @@ def get_token():
             return {'result':'error'}
     except Exception as e:
         logger.error('CorfoGenerateCode - Error to get token, exception: {}'.format(str(e)))
+        return {'result':'error'}
 
 def get_credentential():
     """
@@ -174,15 +175,19 @@ def validate_mooc(token, code, score, id_content, content, user_rut):
         "CodigoCertificacion": code,
         "Evaluacion": score
     }
-    r = requests.post(
-        settings.CORFOGENERATE_URL_VALIDATE,
-        data=json.dumps(body),
-        headers=headers)
-    if r.status_code == 200:
-        data = r.json()
-        data['result'] = 'success'
-        return data
-    else:
+    try:
+        r = requests.post(
+            settings.CORFOGENERATE_URL_VALIDATE,
+            data=json.dumps(body),
+            headers=headers)
+        if r.status_code == 200:
+            data = r.json()
+            data['result'] = 'success'
+            return data
+        else:
+            return {'result':'error'}
+    except Exception as e:
+        logger.error('CorfoGenerateCode - Error to validate_mooc, exception: {}'.format(str(e)))
         return {'result':'error'}
 
 def generate_code_corfo(user_id):

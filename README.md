@@ -25,3 +25,7 @@ Edit *production.py* in *lms settings* and add your own keys, redirect url to ge
     > cd .github/
     > docker-compose run --rm lms /openedx/requirements/corfo_generate_code/.github/test.sh
 
+## Notes
+
+-If CORFOGENERATE_URL_TOKEN or CORFOGENERATE_URL_VALIDATE are test environment, add verify=False to requests
+
