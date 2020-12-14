@@ -126,7 +126,6 @@ def get_token():
             headers=headers)
         if r.status_code == 200:
             data = r.json()
-            print(data)
             data['result'] = 'success'
             return data
         else:
