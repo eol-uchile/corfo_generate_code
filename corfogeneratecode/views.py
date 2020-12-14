@@ -119,17 +119,20 @@ def get_token():
         "client_id": settings.CORFOGENERATE_CLIENT_ID,
         "grant_type": 'client_credentials'
     }
-    r = requests.get(
-        settings.CORFOGENERATE_URL_TOKEN,
-        data=json.dumps(body),
-        headers=headers)
-    if r.status_code == 200:
-        data = r.json()
-        print(data)
-        data['result'] = 'success'
-        return data
-    else:
-        return {'result':'error'}
+    try:
+        r = requests.get(
+            settings.CORFOGENERATE_URL_TOKEN,
+            data=json.dumps(body),
+            headers=headers)
+        if r.status_code == 200:
+            data = r.json()
+            print(data)
+            data['result'] = 'success'
+            return data
+        else:
+            return {'result':'error'}
+    except Exception as e:
+        logger.error('CorfoGenerateCode - Error to get token, exception: {}'.format(str(e)))
 
 def get_credentential():
     """
@@ -205,7 +208,7 @@ def get_grade_cutoff(course_key):
             u"Invalid cert: error finding course %s "
             u"Specific error: %s"
         )
-        log.error(error_str, str(course_key), str(exception))
+        logger.error(error_str, str(course_key), str(exception))
         return None
 
 def grade_percent_scaled( grade_percent, grade_cutoff):

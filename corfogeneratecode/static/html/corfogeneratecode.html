@@ -3,7 +3,7 @@
    {% if xblock.id_content == '0' or xblock.content == '' %}
       <label style="cursor: text;">Componente no configurado.</label></br>
    {% else %}
-      {% if passed is not False %}
+      {% if passed is False %}
          <label style="cursor: text;">No ha pasado el curso todavía.</label>
       {% else %}
          {% if code == '' %}
