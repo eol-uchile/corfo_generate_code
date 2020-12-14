@@ -7,11 +7,16 @@ from opaque_keys.edx.django.models import CourseKeyField
 
 
 class CorfoCodeUser(models.Model):
-    user = models.OneToOneField(
+    class Meta:
+        index_together = [
+            ["user", "course"],
+        ]
+        unique_together = [
+            ["user", "course"],
+        ]
+    user = models.ForeignKey(
         User,
-        on_delete=models.CASCADE,
-        blank=False,
-        null=False, db_index=True)
+        on_delete=models.CASCADE)
     code = models.CharField(max_length=20)
     course = CourseKeyField(max_length=255)
 

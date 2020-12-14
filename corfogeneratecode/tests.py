@@ -491,3 +491,45 @@ class TestCorfoGenerateView(GradeTestBase):
             self.assertEqual(response.status_code, 200)
             self.assertEqual(data['result'], 'error')
             self.assertEqual(data['status'], 7)
+    
+    @patch('requests.post')
+    @patch('requests.get')
+    def test_generate_code_success(self, get, post):
+        """
+            test views.generate_code(request) success process
+        """
+        try:
+            from unittest.case import SkipTest
+            from uchileedxlogin.models import EdxLoginUser
+            EdxLoginUser.objects.create(user=self.student, run='009472337K')
+        except ImportError:
+            self.skipTest("import error uchileedxlogin")
+
+        get_data = {
+                'course_id': str(self.course.id),
+                'id_content': '200',
+                'content': 'testtest'
+            }
+        post_data = {
+                'Data': 0,
+                'Message': None,
+                'Status': 0,
+                'Success': True
+            }
+        resp_data = {
+            "access_token": "IE742SAsEMadiliCt1w582TMnvj98aDyS6L7BXSFP84vto914p77nX",
+            "token_type": "Bearer",
+            "expires_in": 3599,
+            "scope": "resource.READ"
+        }
+        get.side_effect = [namedtuple("Request", ["status_code", "json"])(200, lambda:resp_data)]
+        post.side_effect = [namedtuple("Request", ["status_code", "json"])(200, lambda:post_data)]
+        with mock_get_score(3, 4):
+            self.grade_factory.update(self.student, self.course, force_update_subsections=True)
+        with mock_get_score(3, 4):
+            response = self.student_client.get(reverse('corfogeneratecode:generate'), get_data)
+            data = json.loads(response._container[0].decode())
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(data['result'], 'success')
+            corfouser =  CorfoCodeUser.objects.get(user=self.student, course=self.course.id)
+            self.assertEqual(data['code'], corfouser.code)
