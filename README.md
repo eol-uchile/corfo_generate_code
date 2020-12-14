@@ -9,7 +9,7 @@
     docker-compose exec lms python manage.py lms --settings=prod.production makemigrations
     docker-compose exec lms python manage.py lms --settings=prod.production migrate
 
-# Configuration Zoom
+# Configuration
 
 Edit *production.py* in *lms settings* and add your own keys, redirect url to get token and validate_mooc.
     
