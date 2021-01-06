@@ -120,10 +120,10 @@ def get_token():
         "grant_type": 'client_credentials'
     }
     try:
-        r = requests.get(
+        r = requests.post(
             settings.CORFOGENERATE_URL_TOKEN,
-            data=json.dumps(body),
-            headers=headers)
+            data=body,
+            headers=headers, verify=False)
         if r.status_code == 200:
             data = r.json()
             data['result'] = 'success'
@@ -143,10 +143,11 @@ def get_credentential():
         data = get_token()
         """
         {
-            "access_token": "IE742SAsEMadiliCt1w582TMnvj98aDyS6L7BXSFP84vto914p77nX",
-            "token_type": "Bearer",
-            "expires_in": 3599,
-            "scope": "resource.READ",
+            "access_token":"asdadasdsa",
+            "token_type":"Bearer",
+            "expires_in":3600,
+            "scope":"resource.READ",
+            "appName":"Universidad de Chile"
             "result": 'success'
         }
         """
@@ -174,13 +175,16 @@ def validate_mooc(token, code, score, id_content, content, user_rut):
         "CodigoCertificacion": code,
         "Evaluacion": score
     }
+    message_error = {"Message":"An error has occurred."}
     try:
         r = requests.post(
             settings.CORFOGENERATE_URL_VALIDATE,
-            data=json.dumps(body),
-            headers=headers)
+            data=body,
+            headers=headers, verify=False)
         if r.status_code == 200:
             data = r.json()
+            if data == message_error:
+                return {'result':'error'}
             data['result'] = 'success'
             return data
         else:

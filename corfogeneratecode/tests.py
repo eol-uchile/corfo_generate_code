@@ -266,8 +266,8 @@ class TestCorfoGenerateView(GradeTestBase):
             self.assertEqual(data['result'], 'success')
             self.assertEqual(data['code'], corfouser.code)
     
-    @patch('requests.get')
-    def test_generate_code_request_fail_token(self, get):
+    @patch('requests.post')
+    def test_generate_code_request_fail_token(self, post):
         """
             test views.generate_code(request) when get toket failed
         """
@@ -276,7 +276,7 @@ class TestCorfoGenerateView(GradeTestBase):
                 'id_content': '200',
                 'content': 'testtest'
             }
-        get.side_effect = [namedtuple("Request", ["status_code"])(400)]
+        post.side_effect = [namedtuple("Request", ["status_code"])(400)]
         with mock_get_score(3, 4):
             self.grade_factory.update(self.student, self.course, force_update_subsections=True)
         with mock_get_score(3, 4):
@@ -286,8 +286,8 @@ class TestCorfoGenerateView(GradeTestBase):
             self.assertEqual(data['result'], 'error')
             self.assertEqual(data['status'], 1)
     
-    @patch('requests.get')
-    def test_generate_code_request_user_no_rut(self, get):
+    @patch('requests.post')
+    def test_generate_code_request_user_no_rut(self, post):
         """
             test views.generate_code(request) when user dont have edxloginuser.rut
         """
@@ -302,7 +302,7 @@ class TestCorfoGenerateView(GradeTestBase):
             "expires_in": 3599,
             "scope": "resource.READ"
         }
-        get.side_effect = [namedtuple("Request", ["status_code", "json"])(200, lambda:resp_data)]
+        post.side_effect = [namedtuple("Request", ["status_code", "json"])(200, lambda:resp_data)]
         with mock_get_score(3, 4):
             self.grade_factory.update(self.student, self.course, force_update_subsections=True)
         with mock_get_score(3, 4):
@@ -313,8 +313,7 @@ class TestCorfoGenerateView(GradeTestBase):
             self.assertEqual(data['status'], 2)
     
     @patch('requests.post')
-    @patch('requests.get')
-    def test_generate_code_request_validate_fail(self, get, post):
+    def test_generate_code_request_validate_fail(self, post):
         """
             test views.generate_code(request) when post validate failed
         """
@@ -342,8 +341,7 @@ class TestCorfoGenerateView(GradeTestBase):
             "expires_in": 3599,
             "scope": "resource.READ"
         }
-        get.side_effect = [namedtuple("Request", ["status_code", "json"])(200, lambda:resp_data)]
-        post.side_effect = [namedtuple("Request", ["status_code", "json"])(400, lambda:post_data)]
+        post.side_effect = [namedtuple("Request", ["status_code", "json"])(200, lambda:resp_data), namedtuple("Request", ["status_code", "json"])(400, lambda:post_data)]
         with mock_get_score(3, 4):
             self.grade_factory.update(self.student, self.course, force_update_subsections=True)
         with mock_get_score(3, 4):
@@ -354,8 +352,7 @@ class TestCorfoGenerateView(GradeTestBase):
             self.assertEqual(data['status'], 3)
     
     @patch('requests.post')
-    @patch('requests.get')
-    def test_generate_code_request_validate_wrong_data(self, get, post):
+    def test_generate_code_request_validate_wrong_data(self, post):
         """
             test views.generate_code(request) when post validate with wrong data
         """
@@ -383,8 +380,7 @@ class TestCorfoGenerateView(GradeTestBase):
             "expires_in": 3599,
             "scope": "resource.READ"
         }
-        get.side_effect = [namedtuple("Request", ["status_code", "json"])(200, lambda:resp_data)]
-        post.side_effect = [namedtuple("Request", ["status_code", "json"])(200, lambda:post_data)]
+        post.side_effect = [namedtuple("Request", ["status_code", "json"])(200, lambda:resp_data), namedtuple("Request", ["status_code", "json"])(200, lambda:post_data)]
         with mock_get_score(3, 4):
             self.grade_factory.update(self.student, self.course, force_update_subsections=True)
         with mock_get_score(3, 4):
@@ -458,10 +454,10 @@ class TestCorfoGenerateView(GradeTestBase):
         self.assertEqual(data['status'], 6)
 
     @patch("corfogeneratecode.views.get_grade_cutoff")
-    @patch('requests.get')
-    def test_generate_code_request_grade_cutoff_none(self, get, grade_cutoff):
+    @patch('requests.post')
+    def test_generate_code_request_grade_cutoff_none(self, post, grade_cutoff):
         """
-            test views.generate_code(request) when get get_grade_cutoff failed
+            test views.generate_code(request) when get_grade_cutoff failed
         """
         try:
             from unittest.case import SkipTest
@@ -482,7 +478,7 @@ class TestCorfoGenerateView(GradeTestBase):
             "expires_in": 3599,
             "scope": "resource.READ"
         }
-        get.side_effect = [namedtuple("Request", ["status_code", "json"])(200, lambda:resp_data)]
+        post.side_effect = [namedtuple("Request", ["status_code", "json"])(200, lambda:resp_data)]
         with mock_get_score(3, 4):
             self.grade_factory.update(self.student, self.course, force_update_subsections=True)
         with mock_get_score(3, 4):
@@ -493,8 +489,7 @@ class TestCorfoGenerateView(GradeTestBase):
             self.assertEqual(data['status'], 7)
     
     @patch('requests.post')
-    @patch('requests.get')
-    def test_generate_code_success(self, get, post):
+    def test_generate_code_success(self, post):
         """
             test views.generate_code(request) success process
         """
@@ -522,8 +517,7 @@ class TestCorfoGenerateView(GradeTestBase):
             "expires_in": 3599,
             "scope": "resource.READ"
         }
-        get.side_effect = [namedtuple("Request", ["status_code", "json"])(200, lambda:resp_data)]
-        post.side_effect = [namedtuple("Request", ["status_code", "json"])(200, lambda:post_data)]
+        post.side_effect = [namedtuple("Request", ["status_code", "json"])(200, lambda:resp_data) ,namedtuple("Request", ["status_code", "json"])(200, lambda:post_data)]
         with mock_get_score(3, 4):
             self.grade_factory.update(self.student, self.course, force_update_subsections=True)
         with mock_get_score(3, 4):
@@ -533,3 +527,37 @@ class TestCorfoGenerateView(GradeTestBase):
             self.assertEqual(data['result'], 'success')
             corfouser =  CorfoCodeUser.objects.get(user=self.student, course=self.course.id)
             self.assertEqual(data['code'], corfouser.code)
+    
+    @patch('requests.post')
+    def test_generate_code_request_validate_no_id_institution(self, post):
+        """
+            test views.generate_code(request) when post validate without id_institution
+        """
+        try:
+            from unittest.case import SkipTest
+            from uchileedxlogin.models import EdxLoginUser
+            EdxLoginUser.objects.create(user=self.student, run='009472337K')
+        except ImportError:
+            self.skipTest("import error uchileedxlogin")
+
+        get_data = {
+                'course_id': str(self.course.id),
+                'id_content': '200',
+                'content': 'testtest'
+            }
+        post_data = {"Message":"An error has occurred."}
+        resp_data = {
+            "access_token": "IE742SAsEMadiliCt1w582TMnvj98aDyS6L7BXSFP84vto914p77nX",
+            "token_type": "Bearer",
+            "expires_in": 3599,
+            "scope": "resource.READ"
+        }
+        post.side_effect = [namedtuple("Request", ["status_code", "json"])(200, lambda:resp_data), namedtuple("Request", ["status_code", "json"])(200, lambda:post_data)]
+        with mock_get_score(3, 4):
+            self.grade_factory.update(self.student, self.course, force_update_subsections=True)
+        with mock_get_score(3, 4):
+            response = self.student_client.get(reverse('corfogeneratecode:generate'), get_data)
+            data = json.loads(response._container[0].decode())
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(data['result'], 'error')
+            self.assertEqual(data['status'], 3)
