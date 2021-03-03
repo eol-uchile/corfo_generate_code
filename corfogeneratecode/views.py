@@ -149,7 +149,7 @@ def get_token():
         r = requests.post(
             settings.CORFOGENERATE_URL_TOKEN,
             data=body,
-            headers=headers)
+            headers=headers, verify=False)
         if r.status_code == 200:
             data = r.json()
             data['result'] = 'success'
@@ -206,7 +206,7 @@ def validate_mooc(token, code, score, id_content, content, user_rut):
         r = requests.post(
             settings.CORFOGENERATE_URL_VALIDATE,
             data=body,
-            headers=headers)
+            headers=headers, verify=False)
         if r.status_code == 200:
             data = r.json()
             if data == message_error:

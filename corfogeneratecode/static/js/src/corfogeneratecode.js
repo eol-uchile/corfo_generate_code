@@ -12,7 +12,7 @@ function CorfoGenerateXBlock(runtime, element, settings) {
     var $ = window.jQuery;
     var $element = $(element);
     
-    $(element).find('input[name=corfo-get-code]').live('click', function(e) {
+    $(element).find('#corfo-get-code').live('click', function(e) {
         /* 
             Get corfo code from api
         */

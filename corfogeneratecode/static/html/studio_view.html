@@ -8,6 +8,12 @@
       </li>
       <li class="field comp-setting-entry is-set">
         <div class="wrapper-comp-setting">
+          <label class="label setting-label" for="display_title">Título</label>
+          <input class="input setting-input" name="display_title" id="display_title" value="{{xblock.display_title}}" type="text" />
+        </div>
+      </li>
+      <li class="field comp-setting-entry is-set">
+        <div class="wrapper-comp-setting">
           <label class="label setting-label" for="content">Contenido</label>
           <select name="content" id="corfogeneratecode_content">
             {% for content in list_content %}

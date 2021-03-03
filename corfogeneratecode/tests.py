@@ -106,6 +106,7 @@ class TestCorfoGenerateXBlock(GradeTestBase):
             Verify if default xblock is created correctly
         """
         self.assertEqual(self.xblock.display_name, 'Corfo Generate Code')
+        self.assertEqual(self.xblock.display_title, '')
         self.assertEqual(self.xblock.id_content, 0)
         self.assertEqual(self.xblock.content, '')
 
@@ -116,10 +117,11 @@ class TestCorfoGenerateXBlock(GradeTestBase):
         request = TestRequest()
         request.method = 'POST'
         self.xblock.xmodule_runtime.user_is_staff = True
-        data = json.dumps({'display_name': 'testname', "id_content": '200', "content": 'testtest'})
+        data = json.dumps({'display_name': 'testname', "id_content": '200', "content": 'testtest', 'display_title': 'testtitle'})
         request.body = data.encode()
         response = self.xblock.studio_submit(request)
         self.assertEqual(self.xblock.display_name, 'testname')
+        self.assertEqual(self.xblock.display_title, 'testtitle')
         self.assertEqual(self.xblock.id_content, 200)
         self.assertEqual(self.xblock.content, 'testtest')
     
@@ -130,10 +132,11 @@ class TestCorfoGenerateXBlock(GradeTestBase):
         request = TestRequest()
         request.method = 'POST'
         self.xblock.xmodule_runtime.user_is_staff = True
-        data = json.dumps({'display_name': 'testname', "id_content": '202', "content": 'testtest'})
+        data = json.dumps({'display_name': 'testname', "id_content": '202', "content": 'testtest', 'display_title': 'testtitle'})
         request.body = data.encode()
         response = self.xblock.studio_submit(request)
         self.assertEqual(self.xblock.display_name, 'Corfo Generate Code')
+        self.assertEqual(self.xblock.display_title, '')
         self.assertEqual(self.xblock.id_content, 0)
         self.assertEqual(self.xblock.content, '')
     
@@ -144,10 +147,11 @@ class TestCorfoGenerateXBlock(GradeTestBase):
         request = TestRequest()
         request.method = 'POST'
         self.xblock.xmodule_runtime.user_is_staff = True
-        data = json.dumps({'display_name': 'testname', "id_content": 'aa', "content": 'testtest'})
+        data = json.dumps({'display_name': 'testname', "id_content": 'aa', "content": 'testtest', 'display_title': 'testtitle'})
         request.body = data.encode()
         response = self.xblock.studio_submit(request)
         self.assertEqual(self.xblock.display_name, 'Corfo Generate Code')
+        self.assertEqual(self.xblock.display_title, '')
         self.assertEqual(self.xblock.id_content, 0)
         self.assertEqual(self.xblock.content, '')
 

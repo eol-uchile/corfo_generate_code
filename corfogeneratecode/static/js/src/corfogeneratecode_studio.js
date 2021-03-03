@@ -16,6 +16,7 @@ function CorfoGenerateXBlock(runtime, element) {
 
         var data = {
             'display_name': $(element).find('input[name=display_name]').val(),
+            'display_title': $(element).find('input[name=display_title]').val(),
             'id_content': $(element).find('select[name=content]').val(),
             'content': $(element).find('select[name=content] option:selected').text().trim()
         };

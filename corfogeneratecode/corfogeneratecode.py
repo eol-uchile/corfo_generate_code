@@ -51,6 +51,12 @@ class CorfoGenerateXBlock(StudioEditableXBlockMixin, XBlock):
         default="Corfo Generate Code",
         scope=Scope.settings,
     )
+    display_title = String(
+        display_name="Display Title",
+        help="Display title for this module",
+        default="",
+        scope=Scope.settings,
+    )
     id_content = Integer(
         display_name="Id Content",
         help="Indica cual es el contenido que se va a aprobar",
@@ -195,6 +201,7 @@ class CorfoGenerateXBlock(StudioEditableXBlockMixin, XBlock):
             if not self.validate_content(int(data.get('id_content', '0')), data.get('content', '')):
                 return {'result': 'error'}
             self.display_name = data.get('display_name') or self.display_name.default
+            self.display_title = data.get('display_title', '')
             self.id_content = int(data.get('id_content', '0'))
             self.content = data.get('content', '')
             return {'result': 'success'}
