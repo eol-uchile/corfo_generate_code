@@ -11,7 +11,7 @@
 
 # Configuration
 
-Edit *production.py* in *lms settings* and add your own keys, redirect url to get token and validate_mooc.
+Edit *production.py* in *lms and cms settings* and add your own keys, redirect url to get token and validate_mooc.
     
     CORFOGENERATE_URL_TOKEN = AUTH_TOKENS.get('CORFOGENERATE_URL_TOKEN', '')
     CORFOGENERATE_CLIENT_ID = AUTH_TOKENS.get('CORFOGENERATE_CLIENT_ID', '')
