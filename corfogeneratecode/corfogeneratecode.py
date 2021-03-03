@@ -107,9 +107,17 @@ class CorfoGenerateXBlock(StudioEditableXBlockMixin, XBlock):
         in_studio_preview = self.scope_ids.user_id is None
         return self.is_course_staff() and not in_studio_preview
 
+    def check_settings(self):
+        return (is_empty(DJANGO_SETTINGS.CORFOGENERATE_URL_TOKEN) or
+            is_empty(DJANGO_SETTINGS.CORFOGENERATE_CLIENT_ID) or
+            is_empty(DJANGO_SETTINGS.CORFOGENERATE_CLIENT_SECRET) or
+            is_empty(DJANGO_SETTINGS.CORFOGENERATE_URL_VALIDATE) or
+            is_empty(DJANGO_SETTINGS.CORFOGENERATE_ID_INSTITUTION))
+
     def author_view(self, context=None):
         context = {'xblock': self, 'location': str(
             self.location).split('@')[-1]}
+        context['status_settings'] = self.check_settings()
         template = self.render_template(
             'static/html/author_view.html', context)
         frag = Fragment(template)
@@ -158,7 +166,8 @@ class CorfoGenerateXBlock(StudioEditableXBlockMixin, XBlock):
             'xblock': self,
             'location': str(self.location).split('@')[-1],
             'passed': self.user_course_passed(),
-            'code': self.get_corfo_code_user()
+            'code': self.get_corfo_code_user(),
+            'status_settings': self.check_settings()
         }
         return context
 
@@ -222,3 +231,9 @@ class CorfoGenerateXBlock(StudioEditableXBlockMixin, XBlock):
                 </vertical_demo>
              """),
         ]
+
+def is_empty(attr):
+    """
+        check if attribute is empty or None
+    """
+    return attr == "" or attr == 0 or attr is None

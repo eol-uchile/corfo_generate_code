@@ -25,6 +25,7 @@ from .models import CorfoCodeUser, CorfoCodeMappingContent
 from lms.djangoapps.grades.tests.utils import mock_get_score
 from lms.djangoapps.grades.tests.base import GradeTestBase
 from lms.djangoapps.grades.course_grade_factory import CourseGradeFactory
+from django.test.utils import override_settings
 # Create your tests here.
 
 class TestRequest(object):
@@ -246,6 +247,11 @@ class TestCorfoGenerateView(GradeTestBase):
             self.assertEqual(percent, 0.25)
             self.assertFalse(passed)
     
+    @override_settings(CORFOGENERATE_URL_TOKEN="aaaaa")
+    @override_settings(CORFOGENERATE_CLIENT_ID="aaaaa")
+    @override_settings(CORFOGENERATE_CLIENT_SECRET="aaaaa")
+    @override_settings(CORFOGENERATE_URL_VALIDATE="aaaaa")
+    @override_settings(CORFOGENERATE_ID_INSTITUTION=111)
     def test_generate_code_request(self):
         """
             test views.generate_code(request) without user data
@@ -274,7 +280,12 @@ class TestCorfoGenerateView(GradeTestBase):
 
         response = self.student_client.post(reverse('corfogeneratecode:generate'), get_data)
         self.assertEqual(response.status_code, 400)
-    
+
+    @override_settings(CORFOGENERATE_URL_TOKEN="aaaaa")
+    @override_settings(CORFOGENERATE_CLIENT_ID="aaaaa")
+    @override_settings(CORFOGENERATE_CLIENT_SECRET="aaaaa")
+    @override_settings(CORFOGENERATE_URL_VALIDATE="aaaaa")
+    @override_settings(CORFOGENERATE_ID_INSTITUTION=111)
     def test_generate_code_request_user_with_code(self):
         """
             test views.generate_code(request) when user already have code
@@ -293,7 +304,12 @@ class TestCorfoGenerateView(GradeTestBase):
             self.assertEqual(response.status_code, 200)
             self.assertEqual(data['result'], 'success')
             self.assertEqual(data['code'], corfouser.code)
-    
+
+    @override_settings(CORFOGENERATE_URL_TOKEN="aaaaa")
+    @override_settings(CORFOGENERATE_CLIENT_ID="aaaaa")
+    @override_settings(CORFOGENERATE_CLIENT_SECRET="aaaaa")
+    @override_settings(CORFOGENERATE_URL_VALIDATE="aaaaa")
+    @override_settings(CORFOGENERATE_ID_INSTITUTION=111)
     @patch('requests.post')
     def test_generate_code_request_fail_token(self, post):
         """
@@ -313,7 +329,12 @@ class TestCorfoGenerateView(GradeTestBase):
             self.assertEqual(response.status_code, 200)
             self.assertEqual(data['result'], 'error')
             self.assertEqual(data['status'], 1)
-    
+
+    @override_settings(CORFOGENERATE_URL_TOKEN="aaaaa")
+    @override_settings(CORFOGENERATE_CLIENT_ID="aaaaa")
+    @override_settings(CORFOGENERATE_CLIENT_SECRET="aaaaa")
+    @override_settings(CORFOGENERATE_URL_VALIDATE="aaaaa")
+    @override_settings(CORFOGENERATE_ID_INSTITUTION=111)
     @patch('requests.post')
     def test_generate_code_request_user_no_rut(self, post):
         """
@@ -339,7 +360,12 @@ class TestCorfoGenerateView(GradeTestBase):
             self.assertEqual(response.status_code, 200)
             self.assertEqual(data['result'], 'error')
             self.assertEqual(data['status'], 2)
-    
+
+    @override_settings(CORFOGENERATE_URL_TOKEN="aaaaa")
+    @override_settings(CORFOGENERATE_CLIENT_ID="aaaaa")
+    @override_settings(CORFOGENERATE_CLIENT_SECRET="aaaaa")
+    @override_settings(CORFOGENERATE_URL_VALIDATE="aaaaa")
+    @override_settings(CORFOGENERATE_ID_INSTITUTION=111)
     @patch('requests.post')
     def test_generate_code_request_validate_fail(self, post):
         """
@@ -378,7 +404,12 @@ class TestCorfoGenerateView(GradeTestBase):
             self.assertEqual(response.status_code, 200)
             self.assertEqual(data['result'], 'error')
             self.assertEqual(data['status'], 3)
-    
+
+    @override_settings(CORFOGENERATE_URL_TOKEN="aaaaa")
+    @override_settings(CORFOGENERATE_CLIENT_ID="aaaaa")
+    @override_settings(CORFOGENERATE_CLIENT_SECRET="aaaaa")
+    @override_settings(CORFOGENERATE_URL_VALIDATE="aaaaa")
+    @override_settings(CORFOGENERATE_ID_INSTITUTION=111)
     @patch('requests.post')
     def test_generate_code_request_validate_wrong_data(self, post):
         """
@@ -417,7 +448,12 @@ class TestCorfoGenerateView(GradeTestBase):
             self.assertEqual(response.status_code, 200)
             self.assertEqual(data['result'], 'error')
             self.assertEqual(data['status'], 4)
-    
+
+    @override_settings(CORFOGENERATE_URL_TOKEN="aaaaa")
+    @override_settings(CORFOGENERATE_CLIENT_ID="aaaaa")
+    @override_settings(CORFOGENERATE_CLIENT_SECRET="aaaaa")
+    @override_settings(CORFOGENERATE_URL_VALIDATE="aaaaa")
+    @override_settings(CORFOGENERATE_ID_INSTITUTION=111)
     def test_generate_code_request_wrong_course(self):
         """
             test views.generate_code(request) wrong method
@@ -433,6 +469,11 @@ class TestCorfoGenerateView(GradeTestBase):
         self.assertEqual(data['result'], 'error')
         self.assertEqual(data['status'], 5)
 
+    @override_settings(CORFOGENERATE_URL_TOKEN="aaaaa")
+    @override_settings(CORFOGENERATE_CLIENT_ID="aaaaa")
+    @override_settings(CORFOGENERATE_CLIENT_SECRET="aaaaa")
+    @override_settings(CORFOGENERATE_URL_VALIDATE="aaaaa")
+    @override_settings(CORFOGENERATE_ID_INSTITUTION=111)
     def test_generate_code_request_no_id_content(self):
         """
             test views.generate_code(request) without id_content
@@ -448,6 +489,11 @@ class TestCorfoGenerateView(GradeTestBase):
         self.assertEqual(data['result'], 'error')
         self.assertEqual(data['status'], 5)
 
+    @override_settings(CORFOGENERATE_URL_TOKEN="aaaaa")
+    @override_settings(CORFOGENERATE_CLIENT_ID="aaaaa")
+    @override_settings(CORFOGENERATE_CLIENT_SECRET="aaaaa")
+    @override_settings(CORFOGENERATE_URL_VALIDATE="aaaaa")
+    @override_settings(CORFOGENERATE_ID_INSTITUTION=111)
     def test_generate_code_request_no_content(self):
         """
             test views.generate_code(request) without content
@@ -463,6 +509,11 @@ class TestCorfoGenerateView(GradeTestBase):
         self.assertEqual(data['result'], 'error')
         self.assertEqual(data['status'], 5)
 
+    @override_settings(CORFOGENERATE_URL_TOKEN="aaaaa")
+    @override_settings(CORFOGENERATE_CLIENT_ID="aaaaa")
+    @override_settings(CORFOGENERATE_CLIENT_SECRET="aaaaa")
+    @override_settings(CORFOGENERATE_URL_VALIDATE="aaaaa")
+    @override_settings(CORFOGENERATE_ID_INSTITUTION=111)
     def test_generate_code_request_no_mapping(self):
         """
             test views.generate_code(request) when CorfoCodeMappingContent.DoesNotExist
@@ -477,7 +528,32 @@ class TestCorfoGenerateView(GradeTestBase):
         data = json.loads(response._container[0].decode())
         self.assertEqual(data['result'], 'error')
         self.assertEqual(data['status'], 5)
+    
+    @override_settings(CORFOGENERATE_URL_TOKEN="")
+    @override_settings(CORFOGENERATE_CLIENT_ID="")
+    @override_settings(CORFOGENERATE_CLIENT_SECRET="")
+    @override_settings(CORFOGENERATE_URL_VALIDATE="")
+    @override_settings(CORFOGENERATE_ID_INSTITUTION=0)
+    def test_generate_code_request_no_settings(self):
+        """
+            test views.generate_code(request) when settings no configurate
+        """
+        get_data = {
+                'course_id': str(self.course.id),
+                'id_content': '404',
+                'content': 'a'
+            }
 
+        response = self.student_client.get(reverse('corfogeneratecode:generate'), get_data)
+        data = json.loads(response._container[0].decode())
+        self.assertEqual(data['result'], 'error')
+        self.assertEqual(data['status'], 5)
+
+    @override_settings(CORFOGENERATE_URL_TOKEN="aaaaa")
+    @override_settings(CORFOGENERATE_CLIENT_ID="aaaaa")
+    @override_settings(CORFOGENERATE_CLIENT_SECRET="aaaaa")
+    @override_settings(CORFOGENERATE_URL_VALIDATE="aaaaa")
+    @override_settings(CORFOGENERATE_ID_INSTITUTION=111)
     @patch("corfogeneratecode.views.user_course_passed")
     def test_generate_code_request_passed_none(self, passed):
         """
@@ -496,6 +572,11 @@ class TestCorfoGenerateView(GradeTestBase):
         self.assertEqual(data['result'], 'error')
         self.assertEqual(data['status'], 6)
 
+    @override_settings(CORFOGENERATE_URL_TOKEN="aaaaa")
+    @override_settings(CORFOGENERATE_CLIENT_ID="aaaaa")
+    @override_settings(CORFOGENERATE_CLIENT_SECRET="aaaaa")
+    @override_settings(CORFOGENERATE_URL_VALIDATE="aaaaa")
+    @override_settings(CORFOGENERATE_ID_INSTITUTION=111)
     @patch("corfogeneratecode.views.get_grade_cutoff")
     @patch('requests.post')
     def test_generate_code_request_grade_cutoff_none(self, post, grade_cutoff):
@@ -530,7 +611,12 @@ class TestCorfoGenerateView(GradeTestBase):
             self.assertEqual(response.status_code, 200)
             self.assertEqual(data['result'], 'error')
             self.assertEqual(data['status'], 7)
-    
+
+    @override_settings(CORFOGENERATE_URL_TOKEN="aaaaa")
+    @override_settings(CORFOGENERATE_CLIENT_ID="aaaaa")
+    @override_settings(CORFOGENERATE_CLIENT_SECRET="aaaaa")
+    @override_settings(CORFOGENERATE_URL_VALIDATE="aaaaa")
+    @override_settings(CORFOGENERATE_ID_INSTITUTION=111)
     @patch('requests.post')
     def test_generate_code_success(self, post):
         """
@@ -570,7 +656,12 @@ class TestCorfoGenerateView(GradeTestBase):
             self.assertEqual(data['result'], 'success')
             corfouser =  CorfoCodeUser.objects.get(user=self.student, course=self.course.id)
             self.assertEqual(data['code'], corfouser.code)
-    
+
+    @override_settings(CORFOGENERATE_URL_TOKEN="aaaaa")
+    @override_settings(CORFOGENERATE_CLIENT_ID="aaaaa")
+    @override_settings(CORFOGENERATE_CLIENT_SECRET="aaaaa")
+    @override_settings(CORFOGENERATE_URL_VALIDATE="aaaaa")
+    @override_settings(CORFOGENERATE_ID_INSTITUTION=111)
     @patch('requests.post')
     def test_generate_code_request_validate_no_id_institution(self, post):
         """

@@ -1,6 +1,6 @@
 <div class="corfogeneratecode_block">
    <h2>{{xblock.display_name}}</h2>
-   {% if xblock.id_content == '0' or xblock.content == '' %}
+   {% if xblock.id_content == '0' or xblock.content == '' or status_settings %}
       <label style="cursor: text;">Componente no configurado.</label></br>
    {% else %}
       {% if passed is False %}

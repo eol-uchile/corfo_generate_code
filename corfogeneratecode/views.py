@@ -78,6 +78,10 @@ def validate_data(request):
     """
         Validate data
     """
+    if check_settings():
+        logger.error('CorfoGenerateCode - settings no configurate')
+        return False
+
     if request.user.is_anonymous:
         logger.error('CorfoGenerateCode - User is anonymous')
         return False
@@ -104,6 +108,19 @@ def validate_data(request):
         logger.error('CorfoGenerateCode - CorfoCodeMappingContent.DoesNotExist user: {}, course: {}, id_content: {}, content: {}'.format(request.user, request.GET.get('course_id',''), request.GET.get('id_content'),request.GET.get('content')))
         return False
     return True
+
+def check_settings():
+    return (is_empty(settings.CORFOGENERATE_URL_TOKEN) or
+        is_empty(settings.CORFOGENERATE_CLIENT_ID) or
+        is_empty(settings.CORFOGENERATE_CLIENT_SECRET) or
+        is_empty(settings.CORFOGENERATE_URL_VALIDATE) or
+        is_empty(settings.CORFOGENERATE_ID_INSTITUTION))
+
+def is_empty(attr):
+    """
+        check if attribute is empty or None
+    """
+    return attr == "" or attr == 0 or attr is None
 
 def user_course_passed(user, course_key):
     """
