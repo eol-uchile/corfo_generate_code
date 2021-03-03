@@ -21,7 +21,7 @@ import urllib.parse
 from xblock.field_data import DictFieldData
 from .views import user_course_passed
 from .corfogeneratecode import CorfoGenerateXBlock
-from .models import CorfoCodeUser
+from .models import CorfoCodeUser, CorfoCodeMappingContent
 from lms.djangoapps.grades.tests.utils import mock_get_score
 from lms.djangoapps.grades.tests.base import GradeTestBase
 from lms.djangoapps.grades.course_grade_factory import CourseGradeFactory
@@ -62,7 +62,7 @@ class TestCorfoGenerateXBlock(GradeTestBase):
 
     def setUp(self):
         super(TestCorfoGenerateXBlock, self).setUp()        
-
+        CorfoCodeMappingContent.objects.create(id_content=200, content='testtest')
         self.grade_factory = CourseGradeFactory()
         self.xblock = self.make_an_xblock()
         with patch('student.models.cc.User.save'):
@@ -105,7 +105,7 @@ class TestCorfoGenerateXBlock(GradeTestBase):
             Verify if default xblock is created correctly
         """
         self.assertEqual(self.xblock.display_name, 'Corfo Generate Code')
-        self.assertEqual(self.xblock.id_content, '0')
+        self.assertEqual(self.xblock.id_content, 0)
         self.assertEqual(self.xblock.content, '')
 
     def test_edit_block_studio(self):
@@ -119,8 +119,36 @@ class TestCorfoGenerateXBlock(GradeTestBase):
         request.body = data.encode()
         response = self.xblock.studio_submit(request)
         self.assertEqual(self.xblock.display_name, 'testname')
-        self.assertEqual(self.xblock.id_content, '200')
+        self.assertEqual(self.xblock.id_content, 200)
         self.assertEqual(self.xblock.content, 'testtest')
+    
+    def test_fail_edit_block_studio(self):
+        """
+            Verify submit studio edits when CorfoCodeMappingContent.DoesNotExist
+        """
+        request = TestRequest()
+        request.method = 'POST'
+        self.xblock.xmodule_runtime.user_is_staff = True
+        data = json.dumps({'display_name': 'testname', "id_content": '202', "content": 'testtest'})
+        request.body = data.encode()
+        response = self.xblock.studio_submit(request)
+        self.assertEqual(self.xblock.display_name, 'Corfo Generate Code')
+        self.assertEqual(self.xblock.id_content, 0)
+        self.assertEqual(self.xblock.content, '')
+    
+    def test_edit_block_studio_string_id(self):
+        """
+            Verify submit studio edits when id_content is not a number(Integer)
+        """
+        request = TestRequest()
+        request.method = 'POST'
+        self.xblock.xmodule_runtime.user_is_staff = True
+        data = json.dumps({'display_name': 'testname', "id_content": 'aa', "content": 'testtest'})
+        request.body = data.encode()
+        response = self.xblock.studio_submit(request)
+        self.assertEqual(self.xblock.display_name, 'Corfo Generate Code')
+        self.assertEqual(self.xblock.id_content, 0)
+        self.assertEqual(self.xblock.content, '')
 
     def test_student_view(self):
         """
@@ -174,7 +202,7 @@ class TestCorfoGenerateView(GradeTestBase):
         super(TestCorfoGenerateView, self).setUp()        
 
         self.grade_factory = CourseGradeFactory()
-
+        CorfoCodeMappingContent.objects.create(id_content=200, content='testtest')
         with patch('student.models.cc.User.save'):
             # staff user
             self.client = Client()
@@ -428,6 +456,21 @@ class TestCorfoGenerateView(GradeTestBase):
                 'course_id': 'ads',
                 'id_content': '200',
                 'content': ''
+            }
+
+        response = self.student_client.get(reverse('corfogeneratecode:generate'), get_data)
+        data = json.loads(response._container[0].decode())
+        self.assertEqual(data['result'], 'error')
+        self.assertEqual(data['status'], 5)
+
+    def test_generate_code_request_no_mapping(self):
+        """
+            test views.generate_code(request) when CorfoCodeMappingContent.DoesNotExist
+        """
+        get_data = {
+                'course_id': str(self.course.id),
+                'id_content': '404',
+                'content': 'a'
             }
 
         response = self.student_client.get(reverse('corfogeneratecode:generate'), get_data)

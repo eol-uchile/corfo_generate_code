@@ -51,10 +51,10 @@ class CorfoGenerateXBlock(StudioEditableXBlockMixin, XBlock):
         default="Corfo Generate Code",
         scope=Scope.settings,
     )
-    id_content = String(
+    id_content = Integer(
         display_name="Id Content",
         help="Indica cual es el contenido que se va a aprobar",
-        default="0",
+        default=0,
         scope=Scope.settings,
     )
     content = String(
@@ -120,11 +120,13 @@ class CorfoGenerateXBlock(StudioEditableXBlockMixin, XBlock):
         """
         Render a form for editing this XBlock
         """
+        from .models import CorfoCodeMappingContent
         fragment = Fragment()
 
         context = {
             'xblock': self,
-            'location': str(self.location).split('@')[-1]
+            'location': str(self.location).split('@')[-1],
+            'list_content': CorfoCodeMappingContent.objects.all().values('id_content', 'content')
         }
         fragment.content = loader.render_django_template(
             'static/html/studio_view.html', context)
@@ -180,10 +182,24 @@ class CorfoGenerateXBlock(StudioEditableXBlockMixin, XBlock):
         """
         Called when submitting the form in Studio.
         """
-        self.display_name = data.get('display_name') or self.display_name.default
-        self.id_content = data.get('id_content', '')
-        self.content = data.get('content', '')
-        return {'result': 'success'}
+        try:
+            if not self.validate_content(int(data.get('id_content', '0')), data.get('content', '')):
+                return {'result': 'error'}
+            self.display_name = data.get('display_name') or self.display_name.default
+            self.id_content = int(data.get('id_content', '0'))
+            self.content = data.get('content', '')
+            return {'result': 'success'}
+        except ValueError:
+            #if id_content type is not Integer            
+            return {'result': 'error'}
+
+    def validate_content(self, id_cont, cont):
+        from .models import CorfoCodeMappingContent
+        try:
+            corfomapping = CorfoCodeMappingContent.objects.get(id_content=id_cont, content=cont)
+            return True
+        except CorfoCodeMappingContent.DoesNotExist:
+            return False
 
     def render_template(self, template_path, context):
         template_str = self.resource_string(template_path)
