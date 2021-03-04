@@ -180,7 +180,7 @@ class CorfoGenerateXBlock(StudioEditableXBlockMixin, XBlock):
     def get_corfo_code_user(self):
         from .models import CorfoCodeUser
         try:
-            corfouser = CorfoCodeUser.objects.get(user=self.scope_ids.user_id, course=self.course_id)
+            corfouser = CorfoCodeUser.objects.get(user=self.scope_ids.user_id, mapping_content__id_content=self.id_content)
             return corfouser.code
         except CorfoCodeUser.DoesNotExist:
             return ''

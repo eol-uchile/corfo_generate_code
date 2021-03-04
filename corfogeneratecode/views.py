@@ -25,12 +25,14 @@ def generate_code(request):
     if validate_data(request):
         course_key = CourseKey.from_string(request.GET.get('course_id'))
         passed, percent = user_course_passed(request.user, course_key)
+        id_content = int(request.GET.get('id_content', '0'))
         if passed is None:
             return JsonResponse({'result':'error', 'status': 6, 'message': 'Un error inesperado ha ocurrido, actualice la página e intente nuevamente, si el problema persiste contáctese con mesa de ayuda.'}, safe=False)
         if passed is False:
             logger.error('CorfoGenerateCode - User dont passed course, user: {}, course: {}'.format(request.user, str(course_key)))
             return JsonResponse({'result':'error', 'status': 0, 'message': 'Usuario no ha aprobado el curso todavía.'}, safe=False)
-        corfouser, created = CorfoCodeUser.objects.get_or_create(user=request.user, course=course_key)
+        mapp_content = CorfoCodeMappingContent.objects.get(id_content=id_content)
+        corfouser, created = CorfoCodeUser.objects.get_or_create(user=request.user, mapping_content=mapp_content)
         if corfouser.code != '':
             logger.info('CorfoGenerateCode - User already have code, user: {}, course: {}'.format(request.user, str(course_key)))
             return JsonResponse({'result':'success', 'code': corfouser.code}, safe=False)
@@ -44,7 +46,6 @@ def generate_code(request):
             logger.error('CorfoGenerateCode - User dont have edxloginuser.run, user: {}, course: {}'.format(request.user, str(course_key)))
             return JsonResponse({'result':'error', 'status': 2, 'message': 'Usuario no tiene su Rut configurado, contáctese con mesa de ayuda (eol-ayuda@uchile.cl) para más información'}, safe=False)
 
-        id_content = int(request.GET.get('id_content', '0'))
         content = request.GET.get('content','')
         code = generate_code_corfo(request.user.id)
         grade_cutoff = get_grade_cutoff(course_key)

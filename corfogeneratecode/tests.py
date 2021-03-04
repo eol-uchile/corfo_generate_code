@@ -192,11 +192,13 @@ class TestCorfoGenerateXBlock(GradeTestBase):
         """
             Verify context in student_view when user has passed the course and have code
         """
-        corfouser = CorfoCodeUser.objects.create(user=self.student, course=self.course.id, code='U1CODASDFGH')
+        mapp_content = CorfoCodeMappingContent.objects.get(id_content=200, content='testtest')
+        corfouser = CorfoCodeUser.objects.create(user=self.student, mapping_content=mapp_content, code='U1CODASDFGH')
         with mock_get_score(3, 4):
             self.grade_factory.update(self.student, self.course, force_update_subsections=True)
         with mock_get_score(3, 4):
             self.xblock.scope_ids.user_id = self.student.id
+            self.xblock.id_content = 200
             response = self.xblock.get_context()
             self.assertEqual(response['passed'], True)
             self.assertEqual(response['code'], corfouser.code)
@@ -299,7 +301,8 @@ class TestCorfoGenerateView(GradeTestBase):
                 'id_content': '200',
                 'content': 'testtest'
             }
-        corfouser = CorfoCodeUser.objects.create(user=self.student, course=self.course.id, code='U1CODASDFGH')
+        mapp_content = CorfoCodeMappingContent.objects.get(id_content=int(get_data['id_content']), content='testtest')
+        corfouser = CorfoCodeUser.objects.create(user=self.student, mapping_content=mapp_content, code='U1CODASDFGH')
         with mock_get_score(3, 4):
             self.grade_factory.update(self.student, self.course, force_update_subsections=True)
         with mock_get_score(3, 4):
@@ -658,7 +661,7 @@ class TestCorfoGenerateView(GradeTestBase):
             data = json.loads(response._container[0].decode())
             self.assertEqual(response.status_code, 200)
             self.assertEqual(data['result'], 'success')
-            corfouser =  CorfoCodeUser.objects.get(user=self.student, course=self.course.id)
+            corfouser = CorfoCodeUser.objects.get(user=self.student, mapping_content__id_content=int(get_data['id_content']))
             self.assertEqual(data['code'], corfouser.code)
 
     @override_settings(CORFOGENERATE_URL_TOKEN="aaaaa")
