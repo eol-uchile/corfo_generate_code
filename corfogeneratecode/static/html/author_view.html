@@ -1,14 +1,22 @@
 <div class="corfogeneratecode_block">
-    {% if xblock.id_content == '0' or xblock.content == '' %}
-    <div class="alert alert-warning">
-        <p>El componente <strong>no se ha configurado correctamente</strong>.</p>
-        <p>Edita nuevamente, y revisa que todos los campos se han rellenado.</p>
-    </div>
+    {% if status_settings %}
+        <div class="alert alert-warning">
+            <p>La configuración interna del componente <strong>no se ha configurado correctamente</strong>.</p>
+            <p>Contáctese con mesa de ayuda a través del correo <strong>eol-ayuda@uchile.cl</strong>.</p>
+        </div>
     {% else %}
-    <div class="alert alert-info">
-        <p>El botón para <u>Obtener Código</u> de este XBlock estará únicamente en el LMS</p>
-        <p>En este módulo el <u>estudiante</u> podrá obtener su código de corfo si ha compoletado el curso.</p>
-    </div>
+        {% if xblock.id_content == '0' or xblock.content == '' %}
+        <div class="alert alert-warning">
+            <p>El componente <strong>no se ha configurado correctamente</strong>.</p>
+            <p>Edita nuevamente, y revisa que todos los campos se han rellenado.</p>
+        </div>
+        {% else %}
+        <div class="alert alert-info">
+            <p>El botón para <u>Obtener Código</u> de este XBlock estará únicamente en el LMS</p>
+            <p>En este módulo el <u>estudiante</u> podrá obtener su código de corfo si ha compoletado el curso.</p>
+        </div>
+        {% endif %}
     {% endif %}
+    
 </div>    
 

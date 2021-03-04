@@ -51,10 +51,16 @@ class CorfoGenerateXBlock(StudioEditableXBlockMixin, XBlock):
         default="Corfo Generate Code",
         scope=Scope.settings,
     )
-    id_content = String(
+    display_title = String(
+        display_name="Display Title",
+        help="Display title for this module",
+        default="",
+        scope=Scope.settings,
+    )
+    id_content = Integer(
         display_name="Id Content",
         help="Indica cual es el contenido que se va a aprobar",
-        default="0",
+        default=0,
         scope=Scope.settings,
     )
     content = String(
@@ -107,9 +113,17 @@ class CorfoGenerateXBlock(StudioEditableXBlockMixin, XBlock):
         in_studio_preview = self.scope_ids.user_id is None
         return self.is_course_staff() and not in_studio_preview
 
+    def check_settings(self):
+        return (is_empty(DJANGO_SETTINGS.CORFOGENERATE_URL_TOKEN) or
+            is_empty(DJANGO_SETTINGS.CORFOGENERATE_CLIENT_ID) or
+            is_empty(DJANGO_SETTINGS.CORFOGENERATE_CLIENT_SECRET) or
+            is_empty(DJANGO_SETTINGS.CORFOGENERATE_URL_VALIDATE) or
+            is_empty(DJANGO_SETTINGS.CORFOGENERATE_ID_INSTITUTION))
+
     def author_view(self, context=None):
         context = {'xblock': self, 'location': str(
             self.location).split('@')[-1]}
+        context['status_settings'] = self.check_settings()
         template = self.render_template(
             'static/html/author_view.html', context)
         frag = Fragment(template)
@@ -120,11 +134,13 @@ class CorfoGenerateXBlock(StudioEditableXBlockMixin, XBlock):
         """
         Render a form for editing this XBlock
         """
+        from .models import CorfoCodeMappingContent
         fragment = Fragment()
 
         context = {
             'xblock': self,
-            'location': str(self.location).split('@')[-1]
+            'location': str(self.location).split('@')[-1],
+            'list_content': CorfoCodeMappingContent.objects.all().values('id_content', 'content')
         }
         fragment.content = loader.render_django_template(
             'static/html/studio_view.html', context)
@@ -156,14 +172,15 @@ class CorfoGenerateXBlock(StudioEditableXBlockMixin, XBlock):
             'xblock': self,
             'location': str(self.location).split('@')[-1],
             'passed': self.user_course_passed(),
-            'code': self.get_corfo_code_user()
+            'code': self.get_corfo_code_user(),
+            'status_settings': self.check_settings()
         }
         return context
 
     def get_corfo_code_user(self):
         from .models import CorfoCodeUser
         try:
-            corfouser = CorfoCodeUser.objects.get(user=self.scope_ids.user_id, course=self.course_id)
+            corfouser = CorfoCodeUser.objects.get(user=self.scope_ids.user_id, mapping_content__id_content=self.id_content)
             return corfouser.code
         except CorfoCodeUser.DoesNotExist:
             return ''
@@ -180,10 +197,25 @@ class CorfoGenerateXBlock(StudioEditableXBlockMixin, XBlock):
         """
         Called when submitting the form in Studio.
         """
-        self.display_name = data.get('display_name') or self.display_name.default
-        self.id_content = data.get('id_content', '')
-        self.content = data.get('content', '')
-        return {'result': 'success'}
+        try:
+            if not self.validate_content(int(data.get('id_content', '0')), data.get('content', '')):
+                return {'result': 'error'}
+            self.display_name = data.get('display_name') or self.display_name.default
+            self.display_title = data.get('display_title', '')
+            self.id_content = int(data.get('id_content', '0'))
+            self.content = data.get('content', '')
+            return {'result': 'success'}
+        except ValueError:
+            #if id_content type is not Integer            
+            return {'result': 'error'}
+
+    def validate_content(self, id_cont, cont):
+        from .models import CorfoCodeMappingContent
+        try:
+            corfomapping = CorfoCodeMappingContent.objects.get(id_content=id_cont, content=cont)
+            return True
+        except CorfoCodeMappingContent.DoesNotExist:
+            return False
 
     def render_template(self, template_path, context):
         template_str = self.resource_string(template_path)
@@ -206,3 +238,9 @@ class CorfoGenerateXBlock(StudioEditableXBlockMixin, XBlock):
                 </vertical_demo>
              """),
         ]
+
+def is_empty(attr):
+    """
+        check if attribute is empty or None
+    """
+    return attr == "" or attr == 0 or attr is None

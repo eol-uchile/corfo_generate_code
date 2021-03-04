@@ -21,3 +21,39 @@
     border-color: #f5c6cb;
     color: #721c24 !important;
 }
+
+#corfogeneratecode_content:active {
+    background-color: #83aebb52 !important;
+}
+
+#corfogeneratecode_content:focus {
+    box-shadow: 0 0 1px rgb(0 0 0 / 20%);
+    transition: opacity 0.25s ease-in-out 0s;
+    background-color: #83aebb52;
+}
+.corfogeneratecode_block button {
+    font-family: "Roboto", sans-serif;
+}
+.corfogeneratecode_block .btn {
+    background: none;
+    box-shadow: none;
+    text-shadow: none;
+    background-color: #009bdd !important;
+    border: none;
+    color: white;
+    padding: 12px 30px;
+    cursor: pointer;
+    font-size: 16px !important;
+}
+.corfogeneratecode_block .corfogeneratecode_button {
+    font-size: 13px;
+    line-height: 20.72px;
+}
+.corfogeneratecode_block .btn:hover {
+    background: none;
+    background-color: #0387bf !important;
+}
+.corfogeneratecode_block .btn:active, .corfogeneratecode_block .btn:focus {
+    border: none;
+    box-shadow: none;
+}

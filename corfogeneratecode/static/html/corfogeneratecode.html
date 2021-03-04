@@ -1,10 +1,10 @@
 <div class="corfogeneratecode_block">
-   <h2>{{xblock.display_name}}</h2>
-   {% if xblock.id_content == '0' or xblock.content == '' %}
+   <h2>{{xblock.display_title}}</h2>
+   {% if xblock.id_content == '0' or xblock.content == '' or status_settings %}
       <label style="cursor: text;">Componente no configurado.</label></br>
    {% else %}
       {% if passed is False %}
-         <label style="cursor: text;">No ha pasado el curso todavía.</label>
+         <label style="cursor: text;">Debe aprobar el curso para generar el código de certificación.</label>
       {% else %}
          {% if code == '' %}
             <div id="ui-loading-corfogeneratecode-load" class="ui-loading is-hidden" style="box-shadow: none;">
@@ -15,10 +15,12 @@
                <span class="copy">Cargando</span>
                </p>
             </div>
-            <input name="corfo-get-code" type="button" style="width: 160px;margin-left: auto;" value="Obtener Codigo">
+            <button id='corfo-get-code' name="corfo-get-code" class="btn corfogeneratecode_button" style="width: 160px;margin-left: auto;">
+               Obtener Código
+            </button>
             <label id='corfo_code' class="is-hidden" style="cursor: text;"></label></br>
          {% else %}
-            <label style="cursor: text;">Su código corfo es: {{ code }}</label></br>
+            <label style="cursor: text;">Su código de certificación corfo es: {{ code }}</label></br>
          {% endif %}
          <p class="corfogeneratecode_error"></p>
       {% endif %}

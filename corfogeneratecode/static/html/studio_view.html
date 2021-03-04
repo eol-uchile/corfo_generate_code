@@ -8,14 +8,18 @@
       </li>
       <li class="field comp-setting-entry is-set">
         <div class="wrapper-comp-setting">
-          <label class="label setting-label" for="id_content">Id Contenido</label>
-          <input class="input setting-input" name="id_content" id="id_content" value="{{xblock.id_content}}" type="number" />
+          <label class="label setting-label" for="display_title">Título</label>
+          <input class="input setting-input" name="display_title" id="display_title" value="{{xblock.display_title}}" type="text" />
         </div>
       </li>
       <li class="field comp-setting-entry is-set">
         <div class="wrapper-comp-setting">
           <label class="label setting-label" for="content">Contenido</label>
-          <input class="input setting-input" name="content" id="content" value="{{xblock.content}}" type="text" />
+          <select name="content" id="corfogeneratecode_content">
+            {% for content in list_content %}
+              <option value="{{ content.id_content }}" {% if content.id_content == xblock.id_content %}selected{% endif %}>{{ content.content }}</option>
+            {% endfor %}
+          </select>
         </div>
       </li>
     </ul>
