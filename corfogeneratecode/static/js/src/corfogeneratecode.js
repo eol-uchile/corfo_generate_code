@@ -29,8 +29,9 @@ function CorfoGenerateXBlock(runtime, element, settings) {
             success: function(response) {
                 if(response.result == 'success'){
                     $element.find('#corfo_code')[0].textContent = response.code;
+                    $element.find('#corfo_user_rut')[0].textContent = response.user_rut;
                     $(element).find('#corfo-get-code').hide()
-                    $(element).find('#label_corfo_code').show();
+                    $(element).find('#corfo_label_div').show();
                     $element.find('.corfogeneratecode_error')[0].textContent = '';
                 }
                 else{

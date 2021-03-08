@@ -18,9 +18,13 @@
             <button id='corfo-get-code' name="corfo-get-code" class="btn corfogeneratecode_button" style="margin-left: auto;">
                Obtener Código
             </button>
-            <label id='label_corfo_code' class="is-hidden" style="cursor: text;">Su código de certificación corfo es: <strong><span id='corfo_code'></span></strong></label></br>
+            <div id='corfo_label_div' class="is-hidden">
+               <label id='label_corfo_code' style="cursor: text;">Su código de certificación corfo es: <strong><span id='corfo_code'></span></strong></label></br>
+               <label id='label_corfo_user_rut' style="cursor: text;">Rut asociado: <strong><span id='corfo_user_rut'></span></strong></label></br>
+            </div>
          {% else %}
             <label style="cursor: text;">Su código de certificación corfo es: <strong>{{ code }}</strong></label></br>
+            <label style="cursor: text;">Rut asociado: <strong>{{ user_rut }}</strong></label></br>
          {% endif %}
          <p class="corfogeneratecode_error"></p>
       {% endif %}

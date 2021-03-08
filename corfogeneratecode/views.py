@@ -33,15 +33,15 @@ def generate_code(request):
             return JsonResponse({'result':'error', 'status': 0, 'message': 'Usuario no ha aprobado el curso todavía.'}, safe=False)
         mapp_content = CorfoCodeMappingContent.objects.get(id_content=id_content)
         corfouser, created = CorfoCodeUser.objects.get_or_create(user=request.user, mapping_content=mapp_content)
+        user_rut = get_user_rut(corfouser)
         if corfouser.code != '':
             logger.info('CorfoGenerateCode - User already have code, user: {}, course: {}'.format(request.user, str(course_key)))
-            return JsonResponse({'result':'success', 'code': corfouser.code}, safe=False)
+            return JsonResponse({'result':'success', 'code': corfouser.code, 'user_rut': user_rut}, safe=False)
         token = get_credentential()
         if token is None:
             logger.error('CorfoGenerateCode - Error to get token, user: {}, course: {}'.format(request.user, str(course_key)))
             return JsonResponse({'result':'error', 'status': 1, 'message': 'Un error inesperado ha ocurrido, actualice la página e intente nuevamente, si el problema persiste contáctese con mesa de ayuda.'}, safe=False)
-        
-        user_rut = get_user_rut(corfouser)
+
         if user_rut is None:
             logger.error('CorfoGenerateCode - User dont have edxloginuser.run, user: {}, course: {}'.format(request.user, str(course_key)))
             return JsonResponse({'result':'error', 'status': 2, 'message': 'Usuario no tiene su Rut configurado, contáctese con mesa de ayuda (eol-ayuda@uchile.cl) para más información'}, safe=False)
@@ -61,7 +61,7 @@ def generate_code(request):
 
         corfouser.code = code
         corfouser.save()
-        return JsonResponse({'result':'success', 'code': code}, safe=False)
+        return JsonResponse({'result':'success', 'code': code, 'user_rut': user_rut}, safe=False)
     return JsonResponse({'result':'error', 'status': 5, 'message': 'Usuario no ha iniciado sesión o error en parámetros, actualice la página e intente nuevamente, si el problema persiste contáctese con mesa de ayuda.'}, safe=False)
 
 def get_user_rut(corfouser):
@@ -72,7 +72,7 @@ def get_user_rut(corfouser):
         aux_run = corfouser.user.edxloginuser.run
         run = str(int(aux_run[:-1])) + aux_run[-1]
         return run
-    except AttributeError:
+    except (AttributeError, ValueError) as e:
         return None
 
 def validate_data(request):
@@ -150,7 +150,7 @@ def get_token():
         r = requests.post(
             settings.CORFOGENERATE_URL_TOKEN,
             data=body,
-            headers=headers)
+            headers=headers, verify=False)
         if r.status_code == 200:
             data = r.json()
             data['result'] = 'success'
@@ -207,7 +207,7 @@ def validate_mooc(token, code, score, id_content, content, user_rut):
         r = requests.post(
             settings.CORFOGENERATE_URL_VALIDATE,
             data=body,
-            headers=headers)
+            headers=headers, verify=False)
         if r.status_code == 200:
             data = r.json()
             if data == message_error:

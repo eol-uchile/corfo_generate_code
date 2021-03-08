@@ -175,6 +175,7 @@ class TestCorfoGenerateXBlock(GradeTestBase):
             response = self.xblock.get_context()
             self.assertEqual(response['passed'], False)
             self.assertEqual(response['code'], '')
+            self.assertEqual(response['user_rut'], '')
 
     def test_student_view_user_passed_course_without_code(self):
         """
@@ -187,6 +188,7 @@ class TestCorfoGenerateXBlock(GradeTestBase):
             response = self.xblock.get_context()
             self.assertEqual(response['passed'], True)
             self.assertEqual(response['code'], '')
+            self.assertEqual(response['user_rut'], '')
 
     def test_student_view_user_passed_course_with_code(self):
         """
@@ -202,6 +204,7 @@ class TestCorfoGenerateXBlock(GradeTestBase):
             response = self.xblock.get_context()
             self.assertEqual(response['passed'], True)
             self.assertEqual(response['code'], corfouser.code)
+            self.assertEqual(response['user_rut'], '')
 
 class TestCorfoGenerateView(GradeTestBase):
 
@@ -359,6 +362,45 @@ class TestCorfoGenerateView(GradeTestBase):
             "scope": "resource.READ"
         }
         post.side_effect = [namedtuple("Request", ["status_code", "json"])(200, lambda:resp_data)]
+        with mock_get_score(3, 4):
+            self.grade_factory.update(self.student, self.course, force_update_subsections=True)
+        with mock_get_score(3, 4):
+            response = self.student_client.get(reverse('corfogeneratecode:generate'), get_data)
+            data = json.loads(response._container[0].decode())
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(data['result'], 'error')
+            self.assertEqual(data['status'], 2)
+
+    @override_settings(CORFOGENERATE_URL_TOKEN="aaaaa")
+    @override_settings(CORFOGENERATE_CLIENT_ID="aaaaa")
+    @override_settings(CORFOGENERATE_CLIENT_SECRET="aaaaa")
+    @override_settings(CORFOGENERATE_URL_VALIDATE="aaaaa")
+    @override_settings(CORFOGENERATE_ID_INSTITUTION=111)
+    @patch('requests.post')
+    def test_generate_code_request_user_wrong_rut(self, post):
+        """
+            test views.generate_code(request) when user have wrong edxloginuser.rut
+        """
+        try:
+            from unittest.case import SkipTest
+            from uchileedxlogin.models import EdxLoginUser
+            EdxLoginUser.objects.create(user=self.student, run='P09472337K')
+        except ImportError:
+            self.skipTest("import error uchileedxlogin")
+
+        get_data = {
+                'course_id': str(self.course.id),
+                'id_content': '200',
+                'content': 'testtest'
+            }
+
+        resp_data = {
+            "access_token": "IE742SAsEMadiliCt1w582TMnvj98aDyS6L7BXSFP84vto914p77nX",
+            "token_type": "Bearer",
+            "expires_in": 3599,
+            "scope": "resource.READ"
+        }
+        post.side_effect = [namedtuple("Request", ["status_code", "json"])(200, lambda:resp_data), namedtuple("Request", ["status_code", "json"])]
         with mock_get_score(3, 4):
             self.grade_factory.update(self.student, self.course, force_update_subsections=True)
         with mock_get_score(3, 4):

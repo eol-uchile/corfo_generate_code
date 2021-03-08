@@ -173,9 +173,23 @@ class CorfoGenerateXBlock(StudioEditableXBlockMixin, XBlock):
             'location': str(self.location).split('@')[-1],
             'passed': self.user_course_passed(),
             'code': self.get_corfo_code_user(),
+            'user_rut': self.get_user_rut(),
             'status_settings': self.check_settings()
         }
         return context
+
+    def get_user_rut(self):
+        """
+            Get user.rut from EdxLoginUser model
+        """
+        from .models import CorfoCodeUser
+        try:
+            corfouser = CorfoCodeUser.objects.get(user=self.scope_ids.user_id, mapping_content__id_content=self.id_content)
+            aux_run = corfouser.user.edxloginuser.run
+            run = str(int(aux_run[:-1])) + aux_run[-1]
+            return run
+        except (CorfoCodeUser.DoesNotExist, AttributeError, ValueError) as e:
+            return ''
 
     def get_corfo_code_user(self):
         from .models import CorfoCodeUser
