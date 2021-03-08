@@ -15,12 +15,12 @@
                <span class="copy">Cargando</span>
                </p>
             </div>
-            <button id='corfo-get-code' name="corfo-get-code" class="btn corfogeneratecode_button" style="width: 160px;margin-left: auto;">
+            <button id='corfo-get-code' name="corfo-get-code" class="btn corfogeneratecode_button" style="margin-left: auto;">
                Obtener Código
             </button>
-            <label id='corfo_code' class="is-hidden" style="cursor: text;"></label></br>
+            <label id='label_corfo_code' class="is-hidden" style="cursor: text;">Su código de certificación corfo es: <strong><span id='corfo_code'></span></strong></label></br>
          {% else %}
-            <label style="cursor: text;">Su código de certificación corfo es: {{ code }}</label></br>
+            <label style="cursor: text;">Su código de certificación corfo es: <strong>{{ code }}</strong></label></br>
          {% endif %}
          <p class="corfogeneratecode_error"></p>
       {% endif %}
