@@ -52,7 +52,7 @@ def generate_code(request):
         if grade_cutoff is None:
             return JsonResponse({'result':'error', 'status': 7, 'message': 'Un error inesperado ha ocurrido, actualice la página e intente nuevamente, si el problema persiste contáctese con mesa de ayuda.'}, safe=False)
         score = grade_percent_scaled(percent, grade_cutoff)
-        response = validate_mooc(token, code, str(score), id_content, content, user_rut)
+        response = validate_mooc(token, code, str(score), id_content, content, user_rut, request.user.email)
         if response['result'] == 'error':
             return JsonResponse({'result':'error', 'status': 3, 'message': 'Un error inesperado ha ocurrido, actualice la página e intente nuevamente, si el problema persiste contáctese con mesa de ayuda.'}, safe=False)
         if response['Status'] != 0 or response['Data'] is None:
@@ -186,7 +186,7 @@ def get_credentential():
     
     return token
 
-def validate_mooc(token, code, score, id_content, content, user_rut):
+def validate_mooc(token, code, score, id_content, content, user_rut, email):
     """
        Post to Corfo with user data
     """
@@ -200,7 +200,8 @@ def validate_mooc(token, code, score, id_content, content, user_rut):
         "Contenido": id_content,
         "NombreContenido": '',
         "CodigoCertificacion": code,
-        "Evaluacion": float(score)
+        "Evaluacion": float(score),
+        "Correo": email
     }
     message_error = {"Message":"An error has occurred."}
     try:
