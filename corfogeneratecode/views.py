@@ -11,6 +11,8 @@ from opaque_keys.edx.keys import CourseKey
 from django.http import Http404, HttpResponse, JsonResponse
 from lms.djangoapps.grades.course_grade_factory import CourseGradeFactory
 from .models import CorfoCodeUser, CorfoCodeMappingContent
+from decimal import Decimal, ROUND_HALF_UP
+from datetime import datetime
 from django.core.cache import cache
 import requests
 import json
@@ -60,6 +62,7 @@ def generate_code(request):
             return JsonResponse({'result':'error', 'status': 4, 'message': 'Un error inesperado ha ocurrido, actualice la página e intente nuevamente, si el problema persiste contáctese con mesa de ayuda.'}, safe=False)
 
         corfouser.code = code
+        corfouser.created_at = datetime.now()
         corfouser.save()
         return JsonResponse({'result':'success', 'code': code, 'user_rut': user_rut}, safe=False)
     return JsonResponse({'result':'error', 'status': 5, 'message': 'Usuario no ha iniciado sesión o error en parámetros, actualice la página e intente nuevamente, si el problema persiste contáctese con mesa de ayuda.'}, safe=False)
@@ -249,12 +252,15 @@ def get_grade_cutoff(course_key):
         logger.error(error_str, str(course_key), str(exception))
         return None
 
-def grade_percent_scaled( grade_percent, grade_cutoff):
+def grade_percent_scaled(grade_percent, grade_cutoff):
     """
         EOL: Scale grade percent by grade cutoff. Grade between 1.0 - 7.0
     """
     if grade_percent == 0.:
         return 1.
     if grade_percent < grade_cutoff:
-        return round(10. * (3. / grade_cutoff * grade_percent + 1.)) / 10.
-    return round((3. / (1. - grade_cutoff) * grade_percent + (7. - (3. / (1. - grade_cutoff)))) * 10.) / 10.
+        return round_up((Decimal('3') / Decimal(str(grade_cutoff)) * Decimal(str(grade_percent)) + Decimal('1')))
+    return round_up(Decimal('3') / Decimal(str(1. - grade_cutoff)) * Decimal(str(grade_percent)) + (Decimal('7') - (Decimal('3') / Decimal(str(1. - grade_cutoff)))))
+
+def round_up(number):
+    return float(Decimal(str(float(number))).quantize(Decimal('0.1'), ROUND_HALF_UP))

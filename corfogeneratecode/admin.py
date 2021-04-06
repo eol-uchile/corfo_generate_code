@@ -5,9 +5,9 @@ from .models import CorfoCodeUser, CorfoCodeMappingContent
 
 
 class CorfoCodeUserAdmin(admin.ModelAdmin):
-    list_display = ('user', 'mapping_content', 'code')
-    search_fields = ['user__username', 'mapping_content__id_content','mapping_content__content', 'code']
-    ordering = ['-user__username']
+    list_display = ('user', 'mapping_content', 'code','created_at')
+    search_fields = ['user__username', 'mapping_content__id_content','mapping_content__content', 'code', 'created_at']
+    ordering = ['-created_at']
 
 class CorfoCodeMappingContentAdmin(admin.ModelAdmin):
     list_display = ('id_content', 'content')

@@ -19,7 +19,7 @@ from student.roles import CourseInstructorRole, CourseStaffRole
 import json
 import urllib.parse
 from xblock.field_data import DictFieldData
-from .views import user_course_passed
+from .views import user_course_passed, grade_percent_scaled
 from .corfogeneratecode import CorfoGenerateXBlock
 from .models import CorfoCodeUser, CorfoCodeMappingContent
 from lms.djangoapps.grades.tests.utils import mock_get_score
@@ -255,7 +255,15 @@ class TestCorfoGenerateView(GradeTestBase):
             passed, percent = user_course_passed(self.student, self.course.id)            
             self.assertEqual(percent, 0.25)
             self.assertFalse(passed)
-    
+
+    def test_round_half_up(self):
+        """
+            Verify method grade_percent_scaled() work correctly
+        """
+        grades = [1,1.1,1.1,1.2,1.2,1.3,1.3,1.4,1.4,1.5,1.5,1.6,1.6,1.7,1.7,1.8,1.8,1.9,1.9,2,2,2.1,2.1,2.2,2.2,2.3,2.3,2.4,2.4,2.5,2.5,2.6,2.6,2.7,2.7,2.8,2.8,2.9,2.9,3,3,3.1,3.1,3.2,3.2,3.3,3.3,3.4,3.4,3.5,3.5,3.6,3.6,3.7,3.7,3.8,3.8,3.9,3.9,4,4,4.1,4.2,4.2,4.3,4.4,4.5,4.5,4.6,4.7,4.8,4.8,4.9,5,5.1,5.1,5.2,5.3,5.4,5.4,5.5,5.6,5.7,5.7,5.8,5.9,6,6,6.1,6.2,6.3,6.3,6.4,6.5,6.6,6.6,6.7,6.8,6.9,6.9,7]
+        for i in range(101):
+            self.assertEqual(grade_percent_scaled(i/100,0.6), grades[i])
+
     @override_settings(CORFOGENERATE_URL_TOKEN="aaaaa")
     @override_settings(CORFOGENERATE_CLIENT_ID="aaaaa")
     @override_settings(CORFOGENERATE_CLIENT_SECRET="aaaaa")

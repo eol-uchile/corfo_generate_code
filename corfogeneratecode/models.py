@@ -1,6 +1,6 @@
 from django.contrib.auth.models import User
 from django.db import models
-
+from datetime import datetime
 from opaque_keys.edx.django.models import CourseKeyField
 
 # Create your models here.
@@ -24,6 +24,7 @@ class CorfoCodeUser(models.Model):
         User,
         on_delete=models.CASCADE)
     code = models.CharField(max_length=20)
+    created_at = models.DateTimeField(default=datetime.now, blank=True)
     mapping_content = models.ForeignKey(
         CorfoCodeMappingContent,
         on_delete=models.CASCADE,
