@@ -17,7 +17,7 @@
           <label class="label setting-label" for="institution">Institución</label>
           <select name="institution" id="corfogeneratecode_institution">
             {% for institution in list_institution %}
-              <option value="{{ institution.id_institution }}" {% if institution.id_institution == xblock.institution %}selected{% endif %}>{{ institution.institution }}</option>
+              <option value="{{ institution.id_institution }}" {% if institution.id_institution == xblock.id_institution %}selected{% endif %}>{{ institution.institution }}</option>
             {% endfor %}
             {% if len_list_institution == 0 %}
               <option value="3093" selected>EOL</option>
