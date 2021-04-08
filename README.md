@@ -18,7 +18,7 @@ Edit *production.py* in *lms and cms settings* and add your own keys, redirect u
     CORFOGENERATE_CLIENT_SECRET = AUTH_TOKENS.get('CORFOGENERATE_CLIENT_SECRET', '')
     CORFOGENERATE_URL_VALIDATE = AUTH_TOKENS.get('CORFOGENERATE_URL_VALIDATE', '')
 
-Add id_instutions in CorfoCodeInstitution model, default id_institution=3093, name=EOL
+Add id_institutions in CorfoCodeInstitution model, default id_institution=3093, name=EOL
 
 ## TESTS
 **Prepare tests:**
