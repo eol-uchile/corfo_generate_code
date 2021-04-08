@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import CorfoCodeUser, CorfoCodeMappingContent
+from .models import CorfoCodeUser, CorfoCodeMappingContent, CorfoCodeInstitution
 
 # Register your models here.
 
@@ -14,5 +14,11 @@ class CorfoCodeMappingContentAdmin(admin.ModelAdmin):
     search_fields = ['id_content', 'content']
     ordering = ['-id_content']
 
+class CorfoCodeInstitutionAdmin(admin.ModelAdmin):
+    list_display = ('id_institution', 'institution')
+    search_fields = ['id_institution', 'institution']
+    ordering = ['-id_institution']
+
 admin.site.register(CorfoCodeUser, CorfoCodeUserAdmin)
 admin.site.register(CorfoCodeMappingContent, CorfoCodeMappingContentAdmin)
+admin.site.register(CorfoCodeInstitution, CorfoCodeInstitutionAdmin)

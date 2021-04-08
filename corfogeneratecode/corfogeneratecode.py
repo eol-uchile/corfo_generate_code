@@ -63,6 +63,12 @@ class CorfoGenerateXBlock(StudioEditableXBlockMixin, XBlock):
         default=0,
         scope=Scope.settings,
     )
+    id_institution = Integer(
+        display_name="Id Content",
+        help="Indica la id de la institucion",
+        default=3093,
+        scope=Scope.settings,
+    )
     content = String(
         display_name="Content",
         help="Nombre del contenido impartido, según la malla de 'El viaje del Emprendedor'",
@@ -117,8 +123,7 @@ class CorfoGenerateXBlock(StudioEditableXBlockMixin, XBlock):
         return (is_empty(DJANGO_SETTINGS.CORFOGENERATE_URL_TOKEN) or
             is_empty(DJANGO_SETTINGS.CORFOGENERATE_CLIENT_ID) or
             is_empty(DJANGO_SETTINGS.CORFOGENERATE_CLIENT_SECRET) or
-            is_empty(DJANGO_SETTINGS.CORFOGENERATE_URL_VALIDATE) or
-            is_empty(DJANGO_SETTINGS.CORFOGENERATE_ID_INSTITUTION))
+            is_empty(DJANGO_SETTINGS.CORFOGENERATE_URL_VALIDATE))
 
     def author_view(self, context=None):
         context = {'xblock': self, 'location': str(
@@ -134,14 +139,16 @@ class CorfoGenerateXBlock(StudioEditableXBlockMixin, XBlock):
         """
         Render a form for editing this XBlock
         """
-        from .models import CorfoCodeMappingContent
+        from .models import CorfoCodeMappingContent, CorfoCodeInstitution
         fragment = Fragment()
 
         context = {
             'xblock': self,
             'location': str(self.location).split('@')[-1],
-            'list_content': CorfoCodeMappingContent.objects.all().values('id_content', 'content')
+            'list_content': CorfoCodeMappingContent.objects.all().values('id_content', 'content'),
+            'list_institution': CorfoCodeInstitution.objects.all().values('id_institution', 'institution')
         }
+        context['len_list_institution'] = len(context['list_institution'])
         fragment.content = loader.render_django_template(
             'static/html/studio_view.html', context)
         fragment.add_css(self.resource_string("static/css/corfogeneratecode.css"))
@@ -162,6 +169,7 @@ class CorfoGenerateXBlock(StudioEditableXBlockMixin, XBlock):
             'url_get_code': reverse('corfogeneratecode:generate'),
             'course_id': str(self.course_id),
             'id_content': self.id_content,
+            'id_institution': self.id_institution,
             'content': self.content
             }
         frag.initialize_js('CorfoGenerateXBlock', json_args=settings)
@@ -212,23 +220,26 @@ class CorfoGenerateXBlock(StudioEditableXBlockMixin, XBlock):
         Called when submitting the form in Studio.
         """
         try:
-            if not self.validate_content(int(data.get('id_content', '0')), data.get('content', '')):
+            if not self.validate_content(int(data.get('id_content', '0')), data.get('content', ''), int(data.get('id_institution', '3093'))):
                 return {'result': 'error'}
             self.display_name = data.get('display_name') or self.display_name.default
             self.display_title = data.get('display_title', '')
             self.id_content = int(data.get('id_content', '0'))
+            self.id_institution = int(data.get('id_institution', '3093'))
             self.content = data.get('content', '')
             return {'result': 'success'}
         except ValueError:
             #if id_content type is not Integer            
             return {'result': 'error'}
 
-    def validate_content(self, id_cont, cont):
-        from .models import CorfoCodeMappingContent
+    def validate_content(self, id_cont, cont, id_institution):
+        from .models import CorfoCodeMappingContent, CorfoCodeInstitution
         try:
             corfomapping = CorfoCodeMappingContent.objects.get(id_content=id_cont, content=cont)
+            if id_institution != 3093:
+                institution = CorfoCodeInstitution.objects.get(id_institution=id_institution)
             return True
-        except CorfoCodeMappingContent.DoesNotExist:
+        except (CorfoCodeMappingContent.DoesNotExist, CorfoCodeInstitution.DoesNotExist) as e:
             return False
 
     def render_template(self, template_path, context):

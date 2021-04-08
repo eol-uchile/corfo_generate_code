@@ -11,6 +11,13 @@ class CorfoCodeMappingContent(models.Model):
     def __str__(self):
         return '(%s) -> %s' % (self.id_content, self.content)
 
+class CorfoCodeInstitution(models.Model):
+    id_institution = models.IntegerField(unique=True, default=0)
+    institution = models.CharField(max_length=255, default="")
+
+    def __str__(self):
+        return '(%s) -> %s' % (self.id_institution, self.institution)
+
 class CorfoCodeUser(models.Model):
     class Meta:
         index_together = [

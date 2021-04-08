@@ -10,7 +10,7 @@ from opaque_keys import InvalidKeyError
 from opaque_keys.edx.keys import CourseKey
 from django.http import Http404, HttpResponse, JsonResponse
 from lms.djangoapps.grades.course_grade_factory import CourseGradeFactory
-from .models import CorfoCodeUser, CorfoCodeMappingContent
+from .models import CorfoCodeUser, CorfoCodeMappingContent, CorfoCodeInstitution
 from decimal import Decimal, ROUND_HALF_UP
 from datetime import datetime
 from django.core.cache import cache
@@ -28,6 +28,7 @@ def generate_code(request):
         course_key = CourseKey.from_string(request.GET.get('course_id'))
         passed, percent = user_course_passed(request.user, course_key)
         id_content = int(request.GET.get('id_content', '0'))
+        id_institution = int(request.GET.get('id_institution', '3093'))
         if passed is None:
             return JsonResponse({'result':'error', 'status': 6, 'message': 'Un error inesperado ha ocurrido, actualice la página e intente nuevamente, si el problema persiste contáctese con mesa de ayuda.'}, safe=False)
         if passed is False:
@@ -54,7 +55,7 @@ def generate_code(request):
         if grade_cutoff is None:
             return JsonResponse({'result':'error', 'status': 7, 'message': 'Un error inesperado ha ocurrido, actualice la página e intente nuevamente, si el problema persiste contáctese con mesa de ayuda.'}, safe=False)
         score = grade_percent_scaled(percent, grade_cutoff)
-        response = validate_mooc(token, code, str(score), id_content, content, user_rut, request.user.email)
+        response = validate_mooc(token, code, str(score), id_content, content, user_rut, request.user.email, id_institution)
         if response['result'] == 'error':
             return JsonResponse({'result':'error', 'status': 3, 'message': 'Un error inesperado ha ocurrido, actualice la página e intente nuevamente, si el problema persiste contáctese con mesa de ayuda.'}, safe=False)
         if response['Status'] != 0 or response['Data'] is None:
@@ -97,6 +98,13 @@ def validate_data(request):
         logger.error('CorfoGenerateCode - id_content is not Integer, user: {}, course: {}, id_content: {}'.format(request.user, request.GET.get('course_id',''), request.GET.get('id_content','0')))
         return False
 
+    try:
+        if int(request.GET.get('id_institution','3093')) != 3093:
+            institution = CorfoCodeInstitution.objects.get(id_institution=int(request.GET.get('id_institution','3093')))
+    except (ValueError, CorfoCodeInstitution.DoesNotExist ) as e:
+        logger.error('CorfoGenerateCode - id_institution is not Integer or dont exists, user: {}, course: {}, id_institution: {}'.format(request.user, request.GET.get('course_id',''), request.GET.get('id_institution','')))
+        return False
+
     if request.GET.get('content', '') == '':
         logger.error('CorfoGenerateCode - content is empty, user: {}, course: {}'.format(request.user, request.GET.get('course_id','')))
         return False
@@ -107,7 +115,6 @@ def validate_data(request):
         return False
     try:
         corfomapping = CorfoCodeMappingContent.objects.get(id_content=int(request.GET.get('id_content','0')), content=request.GET.get('content', ''))
-        return True
     except CorfoCodeMappingContent.DoesNotExist:
         logger.error('CorfoGenerateCode - CorfoCodeMappingContent.DoesNotExist user: {}, course: {}, id_content: {}, content: {}'.format(request.user, request.GET.get('course_id',''), request.GET.get('id_content'),request.GET.get('content')))
         return False
@@ -117,8 +124,7 @@ def check_settings():
     return (is_empty(settings.CORFOGENERATE_URL_TOKEN) or
         is_empty(settings.CORFOGENERATE_CLIENT_ID) or
         is_empty(settings.CORFOGENERATE_CLIENT_SECRET) or
-        is_empty(settings.CORFOGENERATE_URL_VALIDATE) or
-        is_empty(settings.CORFOGENERATE_ID_INSTITUTION))
+        is_empty(settings.CORFOGENERATE_URL_VALIDATE))
 
 def is_empty(attr):
     """
@@ -189,7 +195,7 @@ def get_credentential():
     
     return token
 
-def validate_mooc(token, code, score, id_content, content, user_rut, email):
+def validate_mooc(token, code, score, id_content, content, user_rut, email, id_institution):
     """
        Post to Corfo with user data
     """
@@ -198,7 +204,7 @@ def validate_mooc(token, code, score, id_content, content, user_rut, email):
         'Authorization': 'Bearer {}'.format(token)
     }
     body = {
-        "Institucion": int(settings.CORFOGENERATE_ID_INSTITUTION),
+        "Institucion": id_institution,
         "Rut": user_rut,
         "Contenido": id_content,
         "NombreContenido": '',

@@ -24,6 +24,7 @@ function CorfoGenerateXBlock(runtime, element, settings) {
             data: {
                 'course_id': settings.course_id,
                 'id_content': settings.id_content,
+                'id_institution': settings.id_institution,
                 'content': settings.content
             },
             success: function(response) {

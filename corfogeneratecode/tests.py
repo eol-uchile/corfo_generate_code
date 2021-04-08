@@ -21,7 +21,7 @@ import urllib.parse
 from xblock.field_data import DictFieldData
 from .views import user_course_passed, grade_percent_scaled
 from .corfogeneratecode import CorfoGenerateXBlock
-from .models import CorfoCodeUser, CorfoCodeMappingContent
+from .models import CorfoCodeUser, CorfoCodeMappingContent, CorfoCodeInstitution
 from lms.djangoapps.grades.tests.utils import mock_get_score
 from lms.djangoapps.grades.tests.base import GradeTestBase
 from lms.djangoapps.grades.course_grade_factory import CourseGradeFactory
@@ -108,6 +108,7 @@ class TestCorfoGenerateXBlock(GradeTestBase):
         self.assertEqual(self.xblock.display_name, 'Corfo Generate Code')
         self.assertEqual(self.xblock.display_title, '')
         self.assertEqual(self.xblock.id_content, 0)
+        self.assertEqual(self.xblock.id_institution, 3093)
         self.assertEqual(self.xblock.content, '')
 
     def test_edit_block_studio(self):
@@ -123,8 +124,26 @@ class TestCorfoGenerateXBlock(GradeTestBase):
         self.assertEqual(self.xblock.display_name, 'testname')
         self.assertEqual(self.xblock.display_title, 'testtitle')
         self.assertEqual(self.xblock.id_content, 200)
+        self.assertEqual(self.xblock.id_institution, 3093)
         self.assertEqual(self.xblock.content, 'testtest')
-    
+
+    def test_edit_block_studio_2(self):
+        """
+            Verify submit studio edits is working with CorfoCodeInstitution
+        """
+        CorfoCodeInstitution.objects.create(id_institution=3090, institution='NVIDIA')
+        request = TestRequest()
+        request.method = 'POST'
+        self.xblock.xmodule_runtime.user_is_staff = True
+        data = json.dumps({'display_name': 'testname', "id_content": '200', 'id_institution': '3090', "content": 'testtest', 'display_title': 'testtitle'})
+        request.body = data.encode()
+        response = self.xblock.studio_submit(request)
+        self.assertEqual(self.xblock.display_name, 'testname')
+        self.assertEqual(self.xblock.display_title, 'testtitle')
+        self.assertEqual(self.xblock.id_content, 200)
+        self.assertEqual(self.xblock.id_institution, 3090)
+        self.assertEqual(self.xblock.content, 'testtest')
+
     def test_fail_edit_block_studio(self):
         """
             Verify submit studio edits when CorfoCodeMappingContent.DoesNotExist
@@ -139,8 +158,25 @@ class TestCorfoGenerateXBlock(GradeTestBase):
         self.assertEqual(self.xblock.display_title, '')
         self.assertEqual(self.xblock.id_content, 0)
         self.assertEqual(self.xblock.content, '')
-    
-    def test_edit_block_studio_string_id(self):
+        self.assertEqual(self.xblock.id_institution, 3093)
+
+    def test_fail_edit_block_studio_2(self):
+        """
+            Verify submit studio edits when CorfoCodeInstitution.DoesNotExist
+        """
+        request = TestRequest()
+        request.method = 'POST'
+        self.xblock.xmodule_runtime.user_is_staff = True
+        data = json.dumps({'display_name': 'testname', "id_content": '200', 'id_institution': '3000', "content": 'testtest', 'display_title': 'testtitle'})
+        request.body = data.encode()
+        response = self.xblock.studio_submit(request)
+        self.assertEqual(self.xblock.display_name, 'Corfo Generate Code')
+        self.assertEqual(self.xblock.display_title, '')
+        self.assertEqual(self.xblock.id_content, 0)
+        self.assertEqual(self.xblock.content, '')
+        self.assertEqual(self.xblock.id_institution, 3093)
+
+    def test_edit_block_studio_string_id_content(self):
         """
             Verify submit studio edits when id_content is not a number(Integer)
         """
@@ -154,6 +190,23 @@ class TestCorfoGenerateXBlock(GradeTestBase):
         self.assertEqual(self.xblock.display_title, '')
         self.assertEqual(self.xblock.id_content, 0)
         self.assertEqual(self.xblock.content, '')
+        self.assertEqual(self.xblock.id_institution, 3093)
+
+    def test_edit_block_studio_string_id_institution(self):
+        """
+            Verify submit studio edits when id_institution is not a number(Integer)
+        """
+        request = TestRequest()
+        request.method = 'POST'
+        self.xblock.xmodule_runtime.user_is_staff = True
+        data = json.dumps({'display_name': 'testname', "id_content": '200', 'id_institution': 'asd', "content": 'testtest', 'display_title': 'testtitle'})
+        request.body = data.encode()
+        response = self.xblock.studio_submit(request)
+        self.assertEqual(self.xblock.display_name, 'Corfo Generate Code')
+        self.assertEqual(self.xblock.display_title, '')
+        self.assertEqual(self.xblock.id_content, 0)
+        self.assertEqual(self.xblock.content, '')
+        self.assertEqual(self.xblock.id_institution, 3093)
 
     def test_student_view(self):
         """
@@ -268,7 +321,6 @@ class TestCorfoGenerateView(GradeTestBase):
     @override_settings(CORFOGENERATE_CLIENT_ID="aaaaa")
     @override_settings(CORFOGENERATE_CLIENT_SECRET="aaaaa")
     @override_settings(CORFOGENERATE_URL_VALIDATE="aaaaa")
-    @override_settings(CORFOGENERATE_ID_INSTITUTION=111)
     def test_generate_code_request(self):
         """
             test views.generate_code(request) without user data
@@ -302,7 +354,6 @@ class TestCorfoGenerateView(GradeTestBase):
     @override_settings(CORFOGENERATE_CLIENT_ID="aaaaa")
     @override_settings(CORFOGENERATE_CLIENT_SECRET="aaaaa")
     @override_settings(CORFOGENERATE_URL_VALIDATE="aaaaa")
-    @override_settings(CORFOGENERATE_ID_INSTITUTION=111)
     def test_generate_code_request_user_with_code(self):
         """
             test views.generate_code(request) when user already have code
@@ -327,7 +378,6 @@ class TestCorfoGenerateView(GradeTestBase):
     @override_settings(CORFOGENERATE_CLIENT_ID="aaaaa")
     @override_settings(CORFOGENERATE_CLIENT_SECRET="aaaaa")
     @override_settings(CORFOGENERATE_URL_VALIDATE="aaaaa")
-    @override_settings(CORFOGENERATE_ID_INSTITUTION=111)
     @patch('requests.post')
     def test_generate_code_request_fail_token(self, post):
         """
@@ -352,7 +402,6 @@ class TestCorfoGenerateView(GradeTestBase):
     @override_settings(CORFOGENERATE_CLIENT_ID="aaaaa")
     @override_settings(CORFOGENERATE_CLIENT_SECRET="aaaaa")
     @override_settings(CORFOGENERATE_URL_VALIDATE="aaaaa")
-    @override_settings(CORFOGENERATE_ID_INSTITUTION=111)
     @patch('requests.post')
     def test_generate_code_request_user_no_rut(self, post):
         """
@@ -383,7 +432,6 @@ class TestCorfoGenerateView(GradeTestBase):
     @override_settings(CORFOGENERATE_CLIENT_ID="aaaaa")
     @override_settings(CORFOGENERATE_CLIENT_SECRET="aaaaa")
     @override_settings(CORFOGENERATE_URL_VALIDATE="aaaaa")
-    @override_settings(CORFOGENERATE_ID_INSTITUTION=111)
     @patch('requests.post')
     def test_generate_code_request_user_wrong_rut(self, post):
         """
@@ -422,7 +470,6 @@ class TestCorfoGenerateView(GradeTestBase):
     @override_settings(CORFOGENERATE_CLIENT_ID="aaaaa")
     @override_settings(CORFOGENERATE_CLIENT_SECRET="aaaaa")
     @override_settings(CORFOGENERATE_URL_VALIDATE="aaaaa")
-    @override_settings(CORFOGENERATE_ID_INSTITUTION=111)
     @patch('requests.post')
     def test_generate_code_request_validate_fail(self, post):
         """
@@ -466,7 +513,6 @@ class TestCorfoGenerateView(GradeTestBase):
     @override_settings(CORFOGENERATE_CLIENT_ID="aaaaa")
     @override_settings(CORFOGENERATE_CLIENT_SECRET="aaaaa")
     @override_settings(CORFOGENERATE_URL_VALIDATE="aaaaa")
-    @override_settings(CORFOGENERATE_ID_INSTITUTION=111)
     @patch('requests.post')
     def test_generate_code_request_validate_wrong_data(self, post):
         """
@@ -510,10 +556,9 @@ class TestCorfoGenerateView(GradeTestBase):
     @override_settings(CORFOGENERATE_CLIENT_ID="aaaaa")
     @override_settings(CORFOGENERATE_CLIENT_SECRET="aaaaa")
     @override_settings(CORFOGENERATE_URL_VALIDATE="aaaaa")
-    @override_settings(CORFOGENERATE_ID_INSTITUTION=111)
     def test_generate_code_request_wrong_course(self):
         """
-            test views.generate_code(request) wrong method
+            test views.generate_code(request) wrong course
         """
         get_data = {
                 'course_id': 'ads',
@@ -530,7 +575,46 @@ class TestCorfoGenerateView(GradeTestBase):
     @override_settings(CORFOGENERATE_CLIENT_ID="aaaaa")
     @override_settings(CORFOGENERATE_CLIENT_SECRET="aaaaa")
     @override_settings(CORFOGENERATE_URL_VALIDATE="aaaaa")
-    @override_settings(CORFOGENERATE_ID_INSTITUTION=111)
+    def test_generate_code_request_wrong_id_institution(self):
+        """
+            test views.generate_code(request) wrong id_institution
+        """
+        get_data = {
+                'course_id': 'ads',
+                'id_content': '200',
+                'id_institution': '3090',
+                'content': 'testtest'
+            }
+
+        response = self.student_client.get(reverse('corfogeneratecode:generate'), get_data)
+        data = json.loads(response._container[0].decode())
+        self.assertEqual(data['result'], 'error')
+        self.assertEqual(data['status'], 5)
+
+    @override_settings(CORFOGENERATE_URL_TOKEN="aaaaa")
+    @override_settings(CORFOGENERATE_CLIENT_ID="aaaaa")
+    @override_settings(CORFOGENERATE_CLIENT_SECRET="aaaaa")
+    @override_settings(CORFOGENERATE_URL_VALIDATE="aaaaa")
+    def test_generate_code_request_wrong_id_institution_string(self):
+        """
+            test views.generate_code(request) wrong id_institution
+        """
+        get_data = {
+                'course_id': 'ads',
+                'id_content': '200',
+                'id_institution': 'asd',
+                'content': 'testtest'
+            }
+
+        response = self.student_client.get(reverse('corfogeneratecode:generate'), get_data)
+        data = json.loads(response._container[0].decode())
+        self.assertEqual(data['result'], 'error')
+        self.assertEqual(data['status'], 5)
+
+    @override_settings(CORFOGENERATE_URL_TOKEN="aaaaa")
+    @override_settings(CORFOGENERATE_CLIENT_ID="aaaaa")
+    @override_settings(CORFOGENERATE_CLIENT_SECRET="aaaaa")
+    @override_settings(CORFOGENERATE_URL_VALIDATE="aaaaa")
     def test_generate_code_request_no_id_content(self):
         """
             test views.generate_code(request) without id_content
@@ -550,7 +634,6 @@ class TestCorfoGenerateView(GradeTestBase):
     @override_settings(CORFOGENERATE_CLIENT_ID="aaaaa")
     @override_settings(CORFOGENERATE_CLIENT_SECRET="aaaaa")
     @override_settings(CORFOGENERATE_URL_VALIDATE="aaaaa")
-    @override_settings(CORFOGENERATE_ID_INSTITUTION=111)
     def test_generate_code_request_no_content(self):
         """
             test views.generate_code(request) without content
@@ -570,7 +653,6 @@ class TestCorfoGenerateView(GradeTestBase):
     @override_settings(CORFOGENERATE_CLIENT_ID="aaaaa")
     @override_settings(CORFOGENERATE_CLIENT_SECRET="aaaaa")
     @override_settings(CORFOGENERATE_URL_VALIDATE="aaaaa")
-    @override_settings(CORFOGENERATE_ID_INSTITUTION=111)
     def test_generate_code_request_no_mapping(self):
         """
             test views.generate_code(request) when CorfoCodeMappingContent.DoesNotExist
@@ -590,7 +672,6 @@ class TestCorfoGenerateView(GradeTestBase):
     @override_settings(CORFOGENERATE_CLIENT_ID="")
     @override_settings(CORFOGENERATE_CLIENT_SECRET="")
     @override_settings(CORFOGENERATE_URL_VALIDATE="")
-    @override_settings(CORFOGENERATE_ID_INSTITUTION=0)
     def test_generate_code_request_no_settings(self):
         """
             test views.generate_code(request) when settings no configurate
@@ -610,7 +691,6 @@ class TestCorfoGenerateView(GradeTestBase):
     @override_settings(CORFOGENERATE_CLIENT_ID="aaaaa")
     @override_settings(CORFOGENERATE_CLIENT_SECRET="aaaaa")
     @override_settings(CORFOGENERATE_URL_VALIDATE="aaaaa")
-    @override_settings(CORFOGENERATE_ID_INSTITUTION=111)
     @patch("corfogeneratecode.views.user_course_passed")
     def test_generate_code_request_passed_none(self, passed):
         """
@@ -633,7 +713,6 @@ class TestCorfoGenerateView(GradeTestBase):
     @override_settings(CORFOGENERATE_CLIENT_ID="aaaaa")
     @override_settings(CORFOGENERATE_CLIENT_SECRET="aaaaa")
     @override_settings(CORFOGENERATE_URL_VALIDATE="aaaaa")
-    @override_settings(CORFOGENERATE_ID_INSTITUTION=111)
     @patch("corfogeneratecode.views.get_grade_cutoff")
     @patch('requests.post')
     def test_generate_code_request_grade_cutoff_none(self, post, grade_cutoff):
@@ -673,12 +752,12 @@ class TestCorfoGenerateView(GradeTestBase):
     @override_settings(CORFOGENERATE_CLIENT_ID="aaaaa")
     @override_settings(CORFOGENERATE_CLIENT_SECRET="aaaaa")
     @override_settings(CORFOGENERATE_URL_VALIDATE="aaaaa")
-    @override_settings(CORFOGENERATE_ID_INSTITUTION=111)
     @patch('requests.post')
     def test_generate_code_success(self, post):
         """
             test views.generate_code(request) success process
         """
+        CorfoCodeInstitution.objects.create(id_institution=3094)
         try:
             from unittest.case import SkipTest
             from uchileedxlogin.models import EdxLoginUser
@@ -689,6 +768,7 @@ class TestCorfoGenerateView(GradeTestBase):
         get_data = {
                 'course_id': str(self.course.id),
                 'id_content': '200',
+                'id_institution': '3094',
                 'content': 'testtest'
             }
         post_data = {
@@ -718,7 +798,6 @@ class TestCorfoGenerateView(GradeTestBase):
     @override_settings(CORFOGENERATE_CLIENT_ID="aaaaa")
     @override_settings(CORFOGENERATE_CLIENT_SECRET="aaaaa")
     @override_settings(CORFOGENERATE_URL_VALIDATE="aaaaa")
-    @override_settings(CORFOGENERATE_ID_INSTITUTION=111)
     @patch('requests.post')
     def test_generate_code_request_validate_no_id_institution(self, post):
         """
