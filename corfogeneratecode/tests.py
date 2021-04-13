@@ -19,7 +19,7 @@ from student.roles import CourseInstructorRole, CourseStaffRole
 import json
 import urllib.parse
 from xblock.field_data import DictFieldData
-from .views import user_course_passed, grade_percent_scaled
+from .views import user_course_passed, grade_percent_scaled, generate_code
 from .corfogeneratecode import CorfoGenerateXBlock
 from .models import CorfoCodeUser, CorfoCodeMappingContent, CorfoCodeInstitution
 from lms.djangoapps.grades.tests.utils import mock_get_score
@@ -280,6 +280,65 @@ class TestCorfoGenerateXBlock(GradeTestBase):
             self.assertEqual(response['user_rut'], '')
             self.assertEqual(response['corfo_save'], True)
 
+
+    @override_settings(CORFOGENERATE_URL_TOKEN="aaaaa")
+    @override_settings(CORFOGENERATE_CLIENT_ID="aaaaa")
+    @override_settings(CORFOGENERATE_CLIENT_SECRET="aaaaa")
+    @override_settings(CORFOGENERATE_URL_VALIDATE="aaaaa")
+    @patch('requests.post')
+    def test_block_generate_code(self, post):
+        """
+            Verify generate_code() is working
+        """
+        try:
+            from unittest.case import SkipTest
+            from uchileedxlogin.models import EdxLoginUser
+            EdxLoginUser.objects.create(user=self.student, run='009472337K')
+        except ImportError:
+            self.skipTest("import error uchileedxlogin")
+
+        request = TestRequest()
+        request.method = 'POST'
+        self.xblock.xmodule_runtime.user_is_staff = True
+        data = json.dumps({'display_name': 'testname', "id_content": '200', "content": 'testtest', 'display_title': 'testtitle'})
+        request.body = data.encode()
+        response = self.xblock.studio_submit(request)
+        self.assertEqual(self.xblock.display_name, 'testname')
+        self.assertEqual(self.xblock.display_title, 'testtitle')
+        self.assertEqual(self.xblock.id_content, 200)
+        self.assertEqual(self.xblock.id_institution, 3093)
+        self.assertEqual(self.xblock.content, 'testtest')
+
+        CorfoCodeInstitution.objects.create(id_institution=self.xblock.id_institution)
+        post_data = {
+                'Data': 0,
+                'Message': None,
+                'Status': 0,
+                'Success': True
+            }
+        resp_data = {
+            "access_token": "IE742SAsEMadiliCt1w582TMnvj98aDyS6L7BXSFP84vto914p77nX",
+            "token_type": "Bearer",
+            "expires_in": 3599,
+            "scope": "resource.READ"
+        }
+        post.side_effect = [namedtuple("Request", ["status_code", "json"])(200, lambda:resp_data) ,namedtuple("Request", ["status_code", "json"])(200, lambda:post_data)]
+        with mock_get_score(3, 4):
+            self.grade_factory.update(self.student, self.course, force_update_subsections=True)
+        with mock_get_score(3, 4):
+            request = TestRequest()
+            request.method = 'POST'
+            self.xblock.xmodule_runtime.user_is_staff = False
+            self.xblock.scope_ids.user_id = self.student.id
+            data = json.dumps({})
+            request.body = data.encode()
+            response = self.xblock.generate_code(request)
+            data = json.loads(response._app_iter[0].decode())
+            self.assertEqual(data['result'], 'success')
+            corfouser = CorfoCodeUser.objects.get(user=self.student, mapping_content__id_content=self.xblock.id_content)
+            self.assertEqual(data['code'], corfouser.code)
+            self.assertTrue(corfouser.corfo_save)
+
 class TestCorfoGenerateView(GradeTestBase):
 
     def setUp(self):
@@ -346,30 +405,10 @@ class TestCorfoGenerateView(GradeTestBase):
         """
             test views.generate_code(request) without user data
         """
-        get_data = {
-                'course_id': str(self.course.id),
-                'id_content': '200',
-                'content': 'testtest'
-            }
 
-        response = self.student_client.get(reverse('corfogeneratecode:generate'), get_data)
-        data = json.loads(response._container[0].decode())
-        self.assertEqual(response.status_code, 200)
+        data = generate_code(self.student, str(self.course.id), 3093, 200)
         self.assertEqual(data['result'], 'error')
         self.assertEqual(data['status'], 0)
-
-    def test_generate_code_request_post_method(self):
-        """
-            test views.generate_code(request) wrong method
-        """
-        get_data = {
-                'course_id': str(self.course.id),
-                'id_content': '200',
-                'content': 'testtest'
-            }
-
-        response = self.student_client.post(reverse('corfogeneratecode:generate'), get_data)
-        self.assertEqual(response.status_code, 400)
 
     @override_settings(CORFOGENERATE_URL_TOKEN="aaaaa")
     @override_settings(CORFOGENERATE_CLIENT_ID="aaaaa")
@@ -379,19 +418,13 @@ class TestCorfoGenerateView(GradeTestBase):
         """
             test views.generate_code(request) when user already have code
         """
-        get_data = {
-                'course_id': str(self.course.id),
-                'id_content': '200',
-                'content': 'testtest'
-            }
-        mapp_content = CorfoCodeMappingContent.objects.get(id_content=int(get_data['id_content']), content='testtest')
+        id_content = 200
+        mapp_content = CorfoCodeMappingContent.objects.get(id_content=id_content)
         corfouser = CorfoCodeUser.objects.create(user=self.student, mapping_content=mapp_content, code='U1CODASDFGH', corfo_save=True)
         with mock_get_score(3, 4):
             self.grade_factory.update(self.student, self.course, force_update_subsections=True)
         with mock_get_score(3, 4):
-            response = self.student_client.get(reverse('corfogeneratecode:generate'), get_data)
-            data = json.loads(response._container[0].decode())
-            self.assertEqual(response.status_code, 200)
+            data = generate_code(self.student, str(self.course.id), 3093, id_content)
             self.assertEqual(data['result'], 'success')
             self.assertEqual(data['code'], corfouser.code)
 
@@ -404,21 +437,15 @@ class TestCorfoGenerateView(GradeTestBase):
         """
             test views.generate_code(request) when get toket failed
         """
-        get_data = {
-                'course_id': str(self.course.id),
-                'id_content': '200',
-                'content': 'testtest'
-            }
+        id_content = 200
         post.side_effect = [namedtuple("Request", ["status_code"])(400)]
         with mock_get_score(3, 4):
             self.grade_factory.update(self.student, self.course, force_update_subsections=True)
         with mock_get_score(3, 4):
-            response = self.student_client.get(reverse('corfogeneratecode:generate'), get_data)
-            data = json.loads(response._container[0].decode())
-            self.assertEqual(response.status_code, 200)
+            data = generate_code(self.student, str(self.course.id), 3093, id_content)
             self.assertEqual(data['result'], 'error')
             self.assertEqual(data['status'], 1)
-            mapp_content = CorfoCodeMappingContent.objects.get(id_content=int(get_data['id_content']), content=get_data['content'])
+            mapp_content = CorfoCodeMappingContent.objects.get(id_content=id_content)
             corfouser = CorfoCodeUser.objects.get(user=self.student, mapping_content=mapp_content)
             self.assertFalse(corfouser.corfo_save)
             self.assertTrue(corfouser.code != '')
@@ -432,11 +459,7 @@ class TestCorfoGenerateView(GradeTestBase):
         """
             test views.generate_code(request) when user dont have edxloginuser.rut
         """
-        get_data = {
-                'course_id': str(self.course.id),
-                'id_content': '200',
-                'content': 'testtest'
-            }
+        id_content = 200
         resp_data = {
             "access_token": "IE742SAsEMadiliCt1w582TMnvj98aDyS6L7BXSFP84vto914p77nX",
             "token_type": "Bearer",
@@ -447,12 +470,10 @@ class TestCorfoGenerateView(GradeTestBase):
         with mock_get_score(3, 4):
             self.grade_factory.update(self.student, self.course, force_update_subsections=True)
         with mock_get_score(3, 4):
-            response = self.student_client.get(reverse('corfogeneratecode:generate'), get_data)
-            data = json.loads(response._container[0].decode())
-            self.assertEqual(response.status_code, 200)
+            data = generate_code(self.student, str(self.course.id), 3093, id_content)
             self.assertEqual(data['result'], 'error')
             self.assertEqual(data['status'], 2)
-            mapp_content = CorfoCodeMappingContent.objects.get(id_content=int(get_data['id_content']), content=get_data['content'])
+            mapp_content = CorfoCodeMappingContent.objects.get(id_content=id_content)
             corfouser = CorfoCodeUser.objects.get(user=self.student, mapping_content=mapp_content)
             self.assertFalse(corfouser.corfo_save)
             self.assertTrue(corfouser.code != '')
@@ -473,12 +494,7 @@ class TestCorfoGenerateView(GradeTestBase):
         except ImportError:
             self.skipTest("import error uchileedxlogin")
 
-        get_data = {
-                'course_id': str(self.course.id),
-                'id_content': '200',
-                'content': 'testtest'
-            }
-
+        id_content = 200
         resp_data = {
             "access_token": "IE742SAsEMadiliCt1w582TMnvj98aDyS6L7BXSFP84vto914p77nX",
             "token_type": "Bearer",
@@ -489,12 +505,10 @@ class TestCorfoGenerateView(GradeTestBase):
         with mock_get_score(3, 4):
             self.grade_factory.update(self.student, self.course, force_update_subsections=True)
         with mock_get_score(3, 4):
-            response = self.student_client.get(reverse('corfogeneratecode:generate'), get_data)
-            data = json.loads(response._container[0].decode())
-            self.assertEqual(response.status_code, 200)
+            data = generate_code(self.student, str(self.course.id), 3093, id_content)
             self.assertEqual(data['result'], 'error')
             self.assertEqual(data['status'], 2)
-            mapp_content = CorfoCodeMappingContent.objects.get(id_content=int(get_data['id_content']), content=get_data['content'])
+            mapp_content = CorfoCodeMappingContent.objects.get(id_content=id_content)
             corfouser = CorfoCodeUser.objects.get(user=self.student, mapping_content=mapp_content)
             self.assertFalse(corfouser.corfo_save)
             self.assertTrue(corfouser.code != '')
@@ -515,11 +529,7 @@ class TestCorfoGenerateView(GradeTestBase):
         except ImportError:
             self.skipTest("import error uchileedxlogin")
         
-        get_data = {
-                'course_id': str(self.course.id),
-                'id_content': '200',
-                'content': 'testtest'
-            }
+        id_content = 200
         post_data = {
                 'Data': 0,
                 'Message': None,
@@ -536,12 +546,10 @@ class TestCorfoGenerateView(GradeTestBase):
         with mock_get_score(3, 4):
             self.grade_factory.update(self.student, self.course, force_update_subsections=True)
         with mock_get_score(3, 4):
-            response = self.student_client.get(reverse('corfogeneratecode:generate'), get_data)
-            data = json.loads(response._container[0].decode())
-            self.assertEqual(response.status_code, 200)
+            data = generate_code(self.student, str(self.course.id), 3093, id_content)
             self.assertEqual(data['result'], 'error')
             self.assertEqual(data['status'], 3)
-            mapp_content = CorfoCodeMappingContent.objects.get(id_content=int(get_data['id_content']), content=get_data['content'])
+            mapp_content = CorfoCodeMappingContent.objects.get(id_content=id_content)
             corfouser = CorfoCodeUser.objects.get(user=self.student, mapping_content=mapp_content)
             self.assertFalse(corfouser.corfo_save)
             self.assertTrue(corfouser.code != '')
@@ -562,11 +570,7 @@ class TestCorfoGenerateView(GradeTestBase):
         except ImportError:
             self.skipTest("import error uchileedxlogin")
 
-        get_data = {
-                'course_id': str(self.course.id),
-                'id_content': '200',
-                'content': 'testtest'
-            }
+        id_content = 200
         post_data = {
                 'Data': None,
                 'Message': 'asdfgh',
@@ -583,12 +587,10 @@ class TestCorfoGenerateView(GradeTestBase):
         with mock_get_score(3, 4):
             self.grade_factory.update(self.student, self.course, force_update_subsections=True)
         with mock_get_score(3, 4):
-            response = self.student_client.get(reverse('corfogeneratecode:generate'), get_data)
-            data = json.loads(response._container[0].decode())
-            self.assertEqual(response.status_code, 200)
+            data = generate_code(self.student, str(self.course.id), 3093, id_content)
             self.assertEqual(data['result'], 'error')
             self.assertEqual(data['status'], 4)
-            mapp_content = CorfoCodeMappingContent.objects.get(id_content=int(get_data['id_content']), content=get_data['content'])
+            mapp_content = CorfoCodeMappingContent.objects.get(id_content=id_content)
             corfouser = CorfoCodeUser.objects.get(user=self.student, mapping_content=mapp_content)
             self.assertFalse(corfouser.corfo_save)
             self.assertTrue(corfouser.code != '')
@@ -601,14 +603,9 @@ class TestCorfoGenerateView(GradeTestBase):
         """
             test views.generate_code(request) wrong course
         """
-        get_data = {
-                'course_id': 'ads',
-                'id_content': '200',
-                'content': 'testtest'
-            }
+        id_content = 200
 
-        response = self.student_client.get(reverse('corfogeneratecode:generate'), get_data)
-        data = json.loads(response._container[0].decode())
+        data = generate_code(self.student, 'asd', 3093, id_content)
         self.assertEqual(data['result'], 'error')
         self.assertEqual(data['status'], 5)
 
@@ -620,15 +617,9 @@ class TestCorfoGenerateView(GradeTestBase):
         """
             test views.generate_code(request) wrong id_institution
         """
-        get_data = {
-                'course_id': 'ads',
-                'id_content': '200',
-                'id_institution': '3090',
-                'content': 'testtest'
-            }
+        id_content = 200
 
-        response = self.student_client.get(reverse('corfogeneratecode:generate'), get_data)
-        data = json.loads(response._container[0].decode())
+        data = generate_code(self.student, str(self.course.id), 3090, id_content)
         self.assertEqual(data['result'], 'error')
         self.assertEqual(data['status'], 5)
 
@@ -640,15 +631,9 @@ class TestCorfoGenerateView(GradeTestBase):
         """
             test views.generate_code(request) wrong id_institution
         """
-        get_data = {
-                'course_id': 'ads',
-                'id_content': '200',
-                'id_institution': 'asd',
-                'content': 'testtest'
-            }
+        id_content = 200
 
-        response = self.student_client.get(reverse('corfogeneratecode:generate'), get_data)
-        data = json.loads(response._container[0].decode())
+        data = generate_code(self.student, str(self.course.id), 'asd', id_content)
         self.assertEqual(data['result'], 'error')
         self.assertEqual(data['status'], 5)
 
@@ -660,33 +645,9 @@ class TestCorfoGenerateView(GradeTestBase):
         """
             test views.generate_code(request) without id_content
         """
-        get_data = {
-                'course_id': 'ads',
-                'id_content': '',
-                'content': 'testtest'
-            }
+        id_content = ''
 
-        response = self.student_client.get(reverse('corfogeneratecode:generate'), get_data)
-        data = json.loads(response._container[0].decode())
-        self.assertEqual(data['result'], 'error')
-        self.assertEqual(data['status'], 5)
-
-    @override_settings(CORFOGENERATE_URL_TOKEN="aaaaa")
-    @override_settings(CORFOGENERATE_CLIENT_ID="aaaaa")
-    @override_settings(CORFOGENERATE_CLIENT_SECRET="aaaaa")
-    @override_settings(CORFOGENERATE_URL_VALIDATE="aaaaa")
-    def test_generate_code_request_no_content(self):
-        """
-            test views.generate_code(request) without content
-        """
-        get_data = {
-                'course_id': 'ads',
-                'id_content': '200',
-                'content': ''
-            }
-
-        response = self.student_client.get(reverse('corfogeneratecode:generate'), get_data)
-        data = json.loads(response._container[0].decode())
+        data = generate_code(self.student, str(self.course.id), 3093, id_content)
         self.assertEqual(data['result'], 'error')
         self.assertEqual(data['status'], 5)
 
@@ -698,14 +659,9 @@ class TestCorfoGenerateView(GradeTestBase):
         """
             test views.generate_code(request) when CorfoCodeMappingContent.DoesNotExist
         """
-        get_data = {
-                'course_id': str(self.course.id),
-                'id_content': '404',
-                'content': 'a'
-            }
+        id_content = 404
 
-        response = self.student_client.get(reverse('corfogeneratecode:generate'), get_data)
-        data = json.loads(response._container[0].decode())
+        data = generate_code(self.student, str(self.course.id), 3093, id_content)
         self.assertEqual(data['result'], 'error')
         self.assertEqual(data['status'], 5)
     
@@ -717,14 +673,9 @@ class TestCorfoGenerateView(GradeTestBase):
         """
             test views.generate_code(request) when settings no configurate
         """
-        get_data = {
-                'course_id': str(self.course.id),
-                'id_content': '404',
-                'content': 'a'
-            }
+        id_content = 200
 
-        response = self.student_client.get(reverse('corfogeneratecode:generate'), get_data)
-        data = json.loads(response._container[0].decode())
+        data = generate_code(self.student, str(self.course.id), 3093, id_content)
         self.assertEqual(data['result'], 'error')
         self.assertEqual(data['status'], 5)
 
@@ -738,15 +689,9 @@ class TestCorfoGenerateView(GradeTestBase):
             test views.generate_code(request) when get user_course_passed failed
         """
         passed.return_value = None, None
-        get_data = {
-                'course_id': str(self.course.id),
-                'id_content': '200',
-                'content': 'testtest'
-            }
+        id_content = 200
 
-        response = self.student_client.get(reverse('corfogeneratecode:generate'), get_data)
-        data = json.loads(response._container[0].decode())
-        self.assertEqual(response.status_code, 200)
+        data = generate_code(self.student, str(self.course.id), 3093, id_content)
         self.assertEqual(data['result'], 'error')
         self.assertEqual(data['status'], 6)
 
@@ -768,11 +713,7 @@ class TestCorfoGenerateView(GradeTestBase):
             self.skipTest("import error uchileedxlogin")
         
         grade_cutoff.return_value = None
-        get_data = {
-                'course_id': str(self.course.id),
-                'id_content': '200',
-                'content': 'testtest'
-            }
+        id_content = 200
         resp_data = {
             "access_token": "IE742SAsEMadiliCt1w582TMnvj98aDyS6L7BXSFP84vto914p77nX",
             "token_type": "Bearer",
@@ -783,12 +724,10 @@ class TestCorfoGenerateView(GradeTestBase):
         with mock_get_score(3, 4):
             self.grade_factory.update(self.student, self.course, force_update_subsections=True)
         with mock_get_score(3, 4):
-            response = self.student_client.get(reverse('corfogeneratecode:generate'), get_data)
-            data = json.loads(response._container[0].decode())
-            self.assertEqual(response.status_code, 200)
+            data = generate_code(self.student, str(self.course.id), 3093, id_content)
             self.assertEqual(data['result'], 'error')
             self.assertEqual(data['status'], 7)
-            mapp_content = CorfoCodeMappingContent.objects.get(id_content=int(get_data['id_content']), content=get_data['content'])
+            mapp_content = CorfoCodeMappingContent.objects.get(id_content=id_content)
             corfouser = CorfoCodeUser.objects.get(user=self.student, mapping_content=mapp_content)
             self.assertFalse(corfouser.corfo_save)
             self.assertTrue(corfouser.code != '')
@@ -810,12 +749,7 @@ class TestCorfoGenerateView(GradeTestBase):
         except ImportError:
             self.skipTest("import error uchileedxlogin")
 
-        get_data = {
-                'course_id': str(self.course.id),
-                'id_content': '200',
-                'id_institution': '3094',
-                'content': 'testtest'
-            }
+        id_content = 200
         post_data = {
                 'Data': 0,
                 'Message': None,
@@ -832,11 +766,9 @@ class TestCorfoGenerateView(GradeTestBase):
         with mock_get_score(3, 4):
             self.grade_factory.update(self.student, self.course, force_update_subsections=True)
         with mock_get_score(3, 4):
-            response = self.student_client.get(reverse('corfogeneratecode:generate'), get_data)
-            data = json.loads(response._container[0].decode())
-            self.assertEqual(response.status_code, 200)
+            data = generate_code(self.student, str(self.course.id), 3093, id_content)
             self.assertEqual(data['result'], 'success')
-            corfouser = CorfoCodeUser.objects.get(user=self.student, mapping_content__id_content=int(get_data['id_content']))
+            corfouser = CorfoCodeUser.objects.get(user=self.student, mapping_content__id_content=id_content)
             self.assertEqual(data['code'], corfouser.code)
             self.assertTrue(corfouser.corfo_save)
 
@@ -856,11 +788,7 @@ class TestCorfoGenerateView(GradeTestBase):
         except ImportError:
             self.skipTest("import error uchileedxlogin")
 
-        get_data = {
-                'course_id': str(self.course.id),
-                'id_content': '200',
-                'content': 'testtest'
-            }
+        id_content = 200
         post_data = {"Message":"An error has occurred."}
         resp_data = {
             "access_token": "IE742SAsEMadiliCt1w582TMnvj98aDyS6L7BXSFP84vto914p77nX",
@@ -872,12 +800,10 @@ class TestCorfoGenerateView(GradeTestBase):
         with mock_get_score(3, 4):
             self.grade_factory.update(self.student, self.course, force_update_subsections=True)
         with mock_get_score(3, 4):
-            response = self.student_client.get(reverse('corfogeneratecode:generate'), get_data)
-            data = json.loads(response._container[0].decode())
-            self.assertEqual(response.status_code, 200)
+            data = generate_code(self.student, str(self.course.id), 3093, id_content)
             self.assertEqual(data['result'], 'error')
             self.assertEqual(data['status'], 3)
-            mapp_content = CorfoCodeMappingContent.objects.get(id_content=int(get_data['id_content']), content=get_data['content'])
+            mapp_content = CorfoCodeMappingContent.objects.get(id_content=id_content)
             corfouser = CorfoCodeUser.objects.get(user=self.student, mapping_content=mapp_content)
             self.assertFalse(corfouser.corfo_save)
             self.assertTrue(corfouser.code != '')

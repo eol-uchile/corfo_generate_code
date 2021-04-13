@@ -165,14 +165,7 @@ class CorfoGenerateXBlock(StudioEditableXBlockMixin, XBlock):
         frag.add_css(self.resource_string("static/css/corfogeneratecode.css"))
         frag.add_javascript(self.resource_string(
             "static/js/src/corfogeneratecode.js"))
-        settings = {
-            'url_get_code': reverse('corfogeneratecode:generate'),
-            'course_id': str(self.course_id),
-            'id_content': self.id_content,
-            'id_institution': self.id_institution,
-            'content': self.content
-            }
-        frag.initialize_js('CorfoGenerateXBlock', json_args=settings)
+        frag.initialize_js('CorfoGenerateXBlock')
         return frag
 
     def get_context(self):
@@ -212,9 +205,12 @@ class CorfoGenerateXBlock(StudioEditableXBlockMixin, XBlock):
     def user_course_passed(self):
         from lms.djangoapps.grades.course_grade_factory import CourseGradeFactory
         from django.contrib.auth.models import User
-        user = User.objects.get(id=self.scope_ids.user_id)
-        response = CourseGradeFactory().read(user, course_key=self.course_id)
-        return response.passed
+        try:
+            user = User.objects.get(id=self.scope_ids.user_id)
+            response = CourseGradeFactory().read(user, course_key=self.course_id)
+            return response.passed
+        except User.DoesNotExist:
+            return False
 
     @XBlock.json_handler
     def studio_submit(self, data, suffix=''):
@@ -233,6 +229,17 @@ class CorfoGenerateXBlock(StudioEditableXBlockMixin, XBlock):
         except ValueError:
             #if id_content type is not Integer            
             return {'result': 'error'}
+
+    @XBlock.json_handler
+    def generate_code(self, data, suffix=''):
+        from .views import generate_code
+        from django.contrib.auth.models import User
+        try:
+            user = User.objects.get(id=self.scope_ids.user_id)
+            response = generate_code(user, str(self.course_id), self.id_institution, self.id_content)
+            return response
+        except User.DoesNotExist:
+            return {'result':'error', 'status': 5, 'message': 'Usuario no ha iniciado sesión, actualice la página e intente nuevamente, si el problema persiste contáctese con mesa de ayuda <a href="/contact_form" target="_blank">presionando aquí</a>.'}
 
     def validate_content(self, id_cont, cont, id_institution):
         from .models import CorfoCodeMappingContent, CorfoCodeInstitution
