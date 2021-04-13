@@ -176,19 +176,21 @@ class CorfoGenerateXBlock(StudioEditableXBlockMixin, XBlock):
         return frag
 
     def get_context(self):
+        data = self.get_corfo_user_data()
         context = {
             'xblock': self,
             'location': str(self.location).split('@')[-1],
             'passed': self.user_course_passed(),
-            'code': self.get_corfo_code_user(),
+            'code': data['code'],
             'user_rut': self.get_user_rut(),
+            'corfo_save': data['corfo_save'],
             'status_settings': self.check_settings()
         }
         return context
 
     def get_user_rut(self):
         """
-            Get user.rut from EdxLoginUser model
+            Get user data from EdxLoginUser model
         """
         from .models import CorfoCodeUser
         try:
@@ -199,13 +201,13 @@ class CorfoGenerateXBlock(StudioEditableXBlockMixin, XBlock):
         except (CorfoCodeUser.DoesNotExist, AttributeError, ValueError) as e:
             return ''
 
-    def get_corfo_code_user(self):
+    def get_corfo_user_data(self):
         from .models import CorfoCodeUser
         try:
             corfouser = CorfoCodeUser.objects.get(user=self.scope_ids.user_id, mapping_content__id_content=self.id_content)
-            return corfouser.code
+            return {'code': corfouser.code, 'corfo_save': corfouser.corfo_save}
         except CorfoCodeUser.DoesNotExist:
-            return ''
+            return {'code': '', 'corfo_save': False}
 
     def user_course_passed(self):
         from lms.djangoapps.grades.course_grade_factory import CourseGradeFactory

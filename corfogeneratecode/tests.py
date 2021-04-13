@@ -216,6 +216,7 @@ class TestCorfoGenerateXBlock(GradeTestBase):
         response = self.xblock.get_context()
         self.assertEqual(response['passed'], False)
         self.assertEqual(response['code'], '')
+        self.assertEqual(response['corfo_save'], False)
 
     def test_student_view_user_not_passed_course(self):
         """
@@ -229,6 +230,7 @@ class TestCorfoGenerateXBlock(GradeTestBase):
             self.assertEqual(response['passed'], False)
             self.assertEqual(response['code'], '')
             self.assertEqual(response['user_rut'], '')
+            self.assertEqual(response['corfo_save'], False)
 
     def test_student_view_user_passed_course_without_code(self):
         """
@@ -242,6 +244,7 @@ class TestCorfoGenerateXBlock(GradeTestBase):
             self.assertEqual(response['passed'], True)
             self.assertEqual(response['code'], '')
             self.assertEqual(response['user_rut'], '')
+            self.assertEqual(response['corfo_save'], False)
 
     def test_student_view_user_passed_course_with_code(self):
         """
@@ -258,6 +261,24 @@ class TestCorfoGenerateXBlock(GradeTestBase):
             self.assertEqual(response['passed'], True)
             self.assertEqual(response['code'], corfouser.code)
             self.assertEqual(response['user_rut'], '')
+            self.assertEqual(response['corfo_save'], False)
+
+    def test_student_view_user_passed_course_with_corfo_save(self):
+        """
+            Verify context in student_view when user has passed the course and have corfo_save
+        """
+        mapp_content = CorfoCodeMappingContent.objects.get(id_content=200, content='testtest')
+        corfouser = CorfoCodeUser.objects.create(user=self.student, mapping_content=mapp_content, code='U1CODASDFGH', corfo_save=True)
+        with mock_get_score(3, 4):
+            self.grade_factory.update(self.student, self.course, force_update_subsections=True)
+        with mock_get_score(3, 4):
+            self.xblock.scope_ids.user_id = self.student.id
+            self.xblock.id_content = 200
+            response = self.xblock.get_context()
+            self.assertEqual(response['passed'], True)
+            self.assertEqual(response['code'], corfouser.code)
+            self.assertEqual(response['user_rut'], '')
+            self.assertEqual(response['corfo_save'], True)
 
 class TestCorfoGenerateView(GradeTestBase):
 
@@ -364,7 +385,7 @@ class TestCorfoGenerateView(GradeTestBase):
                 'content': 'testtest'
             }
         mapp_content = CorfoCodeMappingContent.objects.get(id_content=int(get_data['id_content']), content='testtest')
-        corfouser = CorfoCodeUser.objects.create(user=self.student, mapping_content=mapp_content, code='U1CODASDFGH')
+        corfouser = CorfoCodeUser.objects.create(user=self.student, mapping_content=mapp_content, code='U1CODASDFGH', corfo_save=True)
         with mock_get_score(3, 4):
             self.grade_factory.update(self.student, self.course, force_update_subsections=True)
         with mock_get_score(3, 4):
@@ -397,6 +418,10 @@ class TestCorfoGenerateView(GradeTestBase):
             self.assertEqual(response.status_code, 200)
             self.assertEqual(data['result'], 'error')
             self.assertEqual(data['status'], 1)
+            mapp_content = CorfoCodeMappingContent.objects.get(id_content=int(get_data['id_content']), content=get_data['content'])
+            corfouser = CorfoCodeUser.objects.get(user=self.student, mapping_content=mapp_content)
+            self.assertFalse(corfouser.corfo_save)
+            self.assertTrue(corfouser.code != '')
 
     @override_settings(CORFOGENERATE_URL_TOKEN="aaaaa")
     @override_settings(CORFOGENERATE_CLIENT_ID="aaaaa")
@@ -427,6 +452,10 @@ class TestCorfoGenerateView(GradeTestBase):
             self.assertEqual(response.status_code, 200)
             self.assertEqual(data['result'], 'error')
             self.assertEqual(data['status'], 2)
+            mapp_content = CorfoCodeMappingContent.objects.get(id_content=int(get_data['id_content']), content=get_data['content'])
+            corfouser = CorfoCodeUser.objects.get(user=self.student, mapping_content=mapp_content)
+            self.assertFalse(corfouser.corfo_save)
+            self.assertTrue(corfouser.code != '')
 
     @override_settings(CORFOGENERATE_URL_TOKEN="aaaaa")
     @override_settings(CORFOGENERATE_CLIENT_ID="aaaaa")
@@ -465,6 +494,10 @@ class TestCorfoGenerateView(GradeTestBase):
             self.assertEqual(response.status_code, 200)
             self.assertEqual(data['result'], 'error')
             self.assertEqual(data['status'], 2)
+            mapp_content = CorfoCodeMappingContent.objects.get(id_content=int(get_data['id_content']), content=get_data['content'])
+            corfouser = CorfoCodeUser.objects.get(user=self.student, mapping_content=mapp_content)
+            self.assertFalse(corfouser.corfo_save)
+            self.assertTrue(corfouser.code != '')
 
     @override_settings(CORFOGENERATE_URL_TOKEN="aaaaa")
     @override_settings(CORFOGENERATE_CLIENT_ID="aaaaa")
@@ -499,7 +532,7 @@ class TestCorfoGenerateView(GradeTestBase):
             "expires_in": 3599,
             "scope": "resource.READ"
         }
-        post.side_effect = [namedtuple("Request", ["status_code", "json"])(200, lambda:resp_data), namedtuple("Request", ["status_code", "json"])(400, lambda:post_data)]
+        post.side_effect = [namedtuple("Request", ["status_code", "json"])(200, lambda:resp_data), namedtuple("Request", ["status_code", "json", 'text'])(400, lambda:post_data,'error')]
         with mock_get_score(3, 4):
             self.grade_factory.update(self.student, self.course, force_update_subsections=True)
         with mock_get_score(3, 4):
@@ -508,6 +541,10 @@ class TestCorfoGenerateView(GradeTestBase):
             self.assertEqual(response.status_code, 200)
             self.assertEqual(data['result'], 'error')
             self.assertEqual(data['status'], 3)
+            mapp_content = CorfoCodeMappingContent.objects.get(id_content=int(get_data['id_content']), content=get_data['content'])
+            corfouser = CorfoCodeUser.objects.get(user=self.student, mapping_content=mapp_content)
+            self.assertFalse(corfouser.corfo_save)
+            self.assertTrue(corfouser.code != '')
 
     @override_settings(CORFOGENERATE_URL_TOKEN="aaaaa")
     @override_settings(CORFOGENERATE_CLIENT_ID="aaaaa")
@@ -542,7 +579,7 @@ class TestCorfoGenerateView(GradeTestBase):
             "expires_in": 3599,
             "scope": "resource.READ"
         }
-        post.side_effect = [namedtuple("Request", ["status_code", "json"])(200, lambda:resp_data), namedtuple("Request", ["status_code", "json"])(200, lambda:post_data)]
+        post.side_effect = [namedtuple("Request", ["status_code", "json"])(200, lambda:resp_data), namedtuple("Request", ["status_code", "json", 'text'])(200, lambda:post_data, 'error')]
         with mock_get_score(3, 4):
             self.grade_factory.update(self.student, self.course, force_update_subsections=True)
         with mock_get_score(3, 4):
@@ -551,6 +588,10 @@ class TestCorfoGenerateView(GradeTestBase):
             self.assertEqual(response.status_code, 200)
             self.assertEqual(data['result'], 'error')
             self.assertEqual(data['status'], 4)
+            mapp_content = CorfoCodeMappingContent.objects.get(id_content=int(get_data['id_content']), content=get_data['content'])
+            corfouser = CorfoCodeUser.objects.get(user=self.student, mapping_content=mapp_content)
+            self.assertFalse(corfouser.corfo_save)
+            self.assertTrue(corfouser.code != '')
 
     @override_settings(CORFOGENERATE_URL_TOKEN="aaaaa")
     @override_settings(CORFOGENERATE_CLIENT_ID="aaaaa")
@@ -747,6 +788,10 @@ class TestCorfoGenerateView(GradeTestBase):
             self.assertEqual(response.status_code, 200)
             self.assertEqual(data['result'], 'error')
             self.assertEqual(data['status'], 7)
+            mapp_content = CorfoCodeMappingContent.objects.get(id_content=int(get_data['id_content']), content=get_data['content'])
+            corfouser = CorfoCodeUser.objects.get(user=self.student, mapping_content=mapp_content)
+            self.assertFalse(corfouser.corfo_save)
+            self.assertTrue(corfouser.code != '')
 
     @override_settings(CORFOGENERATE_URL_TOKEN="aaaaa")
     @override_settings(CORFOGENERATE_CLIENT_ID="aaaaa")
@@ -793,6 +838,7 @@ class TestCorfoGenerateView(GradeTestBase):
             self.assertEqual(data['result'], 'success')
             corfouser = CorfoCodeUser.objects.get(user=self.student, mapping_content__id_content=int(get_data['id_content']))
             self.assertEqual(data['code'], corfouser.code)
+            self.assertTrue(corfouser.corfo_save)
 
     @override_settings(CORFOGENERATE_URL_TOKEN="aaaaa")
     @override_settings(CORFOGENERATE_CLIENT_ID="aaaaa")
@@ -831,3 +877,7 @@ class TestCorfoGenerateView(GradeTestBase):
             self.assertEqual(response.status_code, 200)
             self.assertEqual(data['result'], 'error')
             self.assertEqual(data['status'], 3)
+            mapp_content = CorfoCodeMappingContent.objects.get(id_content=int(get_data['id_content']), content=get_data['content'])
+            corfouser = CorfoCodeUser.objects.get(user=self.student, mapping_content=mapp_content)
+            self.assertFalse(corfouser.corfo_save)
+            self.assertTrue(corfouser.code != '')

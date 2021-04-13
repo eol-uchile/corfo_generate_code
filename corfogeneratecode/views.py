@@ -37,9 +37,14 @@ def generate_code(request):
         mapp_content = CorfoCodeMappingContent.objects.get(id_content=id_content)
         corfouser, created = CorfoCodeUser.objects.get_or_create(user=request.user, mapping_content=mapp_content)
         user_rut = get_user_rut(corfouser)
-        if corfouser.code != '':
+        if corfouser.corfo_save and corfouser.code != '':
             logger.info('CorfoGenerateCode - User already have code, user: {}, course: {}'.format(request.user, str(course_key)))
             return JsonResponse({'result':'success', 'code': corfouser.code, 'user_rut': user_rut}, safe=False)
+        if corfouser.code == '':
+            corfouser.code = generate_code_corfo(request.user.id)
+            corfouser.corfo_save = False
+            corfouser.created_at = datetime.now()
+            corfouser.save()
         token = get_credentential()
         if token is None:
             logger.error('CorfoGenerateCode - Error to get token, user: {}, course: {}'.format(request.user, str(course_key)))
@@ -50,22 +55,22 @@ def generate_code(request):
             return JsonResponse({'result':'error', 'status': 2, 'message': 'Usuario no tiene su Rut configurado, contáctese con mesa de ayuda (eol-ayuda@uchile.cl) para más información'}, safe=False)
 
         content = request.GET.get('content','')
-        code = generate_code_corfo(request.user.id)
         grade_cutoff = get_grade_cutoff(course_key)
         if grade_cutoff is None:
             return JsonResponse({'result':'error', 'status': 7, 'message': 'Un error inesperado ha ocurrido, actualice la página e intente nuevamente, si el problema persiste contáctese con mesa de ayuda.'}, safe=False)
+
         score = grade_percent_scaled(percent, grade_cutoff)
-        response = validate_mooc(token, code, str(score), id_content, content, user_rut, request.user.email, id_institution)
+        response = validate_mooc(token, corfouser.code, str(score), id_content, content, user_rut, request.user.email, id_institution)
         if response['result'] == 'error':
             return JsonResponse({'result':'error', 'status': 3, 'message': 'Un error inesperado ha ocurrido, actualice la página e intente nuevamente, si el problema persiste contáctese con mesa de ayuda.'}, safe=False)
-        if response['Status'] != 0 or response['Data'] is None:
+        if response['result'] == 'error_success':
             logger.error('CorfoGenerateCode - Error validate api in status or data, user: {}, course: {}, response: {}'.format(request.user, str(course_key), response))
             return JsonResponse({'result':'error', 'status': 4, 'message': 'Un error inesperado ha ocurrido, actualice la página e intente nuevamente, si el problema persiste contáctese con mesa de ayuda.'}, safe=False)
 
-        corfouser.code = code
+        corfouser.corfo_save = True
         corfouser.created_at = datetime.now()
         corfouser.save()
-        return JsonResponse({'result':'success', 'code': code, 'user_rut': user_rut}, safe=False)
+        return JsonResponse({'result':'success', 'code': corfouser.code, 'user_rut': user_rut}, safe=False)
     return JsonResponse({'result':'error', 'status': 5, 'message': 'Usuario no ha iniciado sesión o error en parámetros, actualice la página e intente nuevamente, si el problema persiste contáctese con mesa de ayuda.'}, safe=False)
 
 def get_user_rut(corfouser):
@@ -221,12 +226,16 @@ def validate_mooc(token, code, score, id_content, content, user_rut, email, id_i
         if r.status_code == 200:
             data = r.json()
             if data == message_error:
-                logger.error('CorfoGenerateCode - Error to validate api, user_rut: {}, response: {}'.format(user_rut, r.__dict__))
+                logger.error('CorfoGenerateCode - Error to validate api, user_rut: {}, response: {}, response_status_code: {}'.format(user_rut, r.text, r.status_code))
                 return {'result':'error'}
-            data['result'] = 'success'
+            elif not data['Success']:
+                logger.error('CorfoGenerateCode - Error to validate api, user_rut: {}, response: {}, response_status_code: {}'.format(user_rut, r.text, r.status_code))
+                data['result'] = 'error_success'
+            else:
+                data['result'] = 'success'
             return data
         else:
-            logger.error('CorfoGenerateCode - Error to validate api, user_rut: {}, response: {}'.format(user_rut, r.__dict__))
+            logger.error('CorfoGenerateCode - Error to validate api, user_rut: {}, response: {}, response_status_code: {}'.format(user_rut, r.text, r.status_code))
             return {'result':'error'}
     except Exception as e:
         logger.error('CorfoGenerateCode - Error to validate_mooc, exception: {}'.format(str(e)))
