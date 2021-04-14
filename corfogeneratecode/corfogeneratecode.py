@@ -63,6 +63,12 @@ class CorfoGenerateXBlock(StudioEditableXBlockMixin, XBlock):
         default=0,
         scope=Scope.settings,
     )
+    id_institution = Integer(
+        display_name="Id Content",
+        help="Indica la id de la institucion",
+        default=3093,
+        scope=Scope.settings,
+    )
     content = String(
         display_name="Content",
         help="Nombre del contenido impartido, según la malla de 'El viaje del Emprendedor'",
@@ -117,8 +123,7 @@ class CorfoGenerateXBlock(StudioEditableXBlockMixin, XBlock):
         return (is_empty(DJANGO_SETTINGS.CORFOGENERATE_URL_TOKEN) or
             is_empty(DJANGO_SETTINGS.CORFOGENERATE_CLIENT_ID) or
             is_empty(DJANGO_SETTINGS.CORFOGENERATE_CLIENT_SECRET) or
-            is_empty(DJANGO_SETTINGS.CORFOGENERATE_URL_VALIDATE) or
-            is_empty(DJANGO_SETTINGS.CORFOGENERATE_ID_INSTITUTION))
+            is_empty(DJANGO_SETTINGS.CORFOGENERATE_URL_VALIDATE))
 
     def author_view(self, context=None):
         context = {'xblock': self, 'location': str(
@@ -134,14 +139,16 @@ class CorfoGenerateXBlock(StudioEditableXBlockMixin, XBlock):
         """
         Render a form for editing this XBlock
         """
-        from .models import CorfoCodeMappingContent
+        from .models import CorfoCodeMappingContent, CorfoCodeInstitution
         fragment = Fragment()
 
         context = {
             'xblock': self,
             'location': str(self.location).split('@')[-1],
-            'list_content': CorfoCodeMappingContent.objects.all().values('id_content', 'content')
+            'list_content': CorfoCodeMappingContent.objects.all().values('id_content', 'content'),
+            'list_institution': CorfoCodeInstitution.objects.all().values('id_institution', 'institution')
         }
+        context['len_list_institution'] = len(context['list_institution'])
         fragment.content = loader.render_django_template(
             'static/html/studio_view.html', context)
         fragment.add_css(self.resource_string("static/css/corfogeneratecode.css"))
@@ -158,29 +165,25 @@ class CorfoGenerateXBlock(StudioEditableXBlockMixin, XBlock):
         frag.add_css(self.resource_string("static/css/corfogeneratecode.css"))
         frag.add_javascript(self.resource_string(
             "static/js/src/corfogeneratecode.js"))
-        settings = {
-            'url_get_code': reverse('corfogeneratecode:generate'),
-            'course_id': str(self.course_id),
-            'id_content': self.id_content,
-            'content': self.content
-            }
-        frag.initialize_js('CorfoGenerateXBlock', json_args=settings)
+        frag.initialize_js('CorfoGenerateXBlock')
         return frag
 
     def get_context(self):
+        data = self.get_corfo_user_data()
         context = {
             'xblock': self,
             'location': str(self.location).split('@')[-1],
             'passed': self.user_course_passed(),
-            'code': self.get_corfo_code_user(),
+            'code': data['code'],
             'user_rut': self.get_user_rut(),
+            'corfo_save': data['corfo_save'],
             'status_settings': self.check_settings()
         }
         return context
 
     def get_user_rut(self):
         """
-            Get user.rut from EdxLoginUser model
+            Get user data from EdxLoginUser model
         """
         from .models import CorfoCodeUser
         try:
@@ -191,20 +194,23 @@ class CorfoGenerateXBlock(StudioEditableXBlockMixin, XBlock):
         except (CorfoCodeUser.DoesNotExist, AttributeError, ValueError) as e:
             return ''
 
-    def get_corfo_code_user(self):
+    def get_corfo_user_data(self):
         from .models import CorfoCodeUser
         try:
             corfouser = CorfoCodeUser.objects.get(user=self.scope_ids.user_id, mapping_content__id_content=self.id_content)
-            return corfouser.code
+            return {'code': corfouser.code, 'corfo_save': corfouser.corfo_save}
         except CorfoCodeUser.DoesNotExist:
-            return ''
+            return {'code': '', 'corfo_save': False}
 
     def user_course_passed(self):
         from lms.djangoapps.grades.course_grade_factory import CourseGradeFactory
         from django.contrib.auth.models import User
-        user = User.objects.get(id=self.scope_ids.user_id)
-        response = CourseGradeFactory().read(user, course_key=self.course_id)
-        return response.passed
+        try:
+            user = User.objects.get(id=self.scope_ids.user_id)
+            response = CourseGradeFactory().read(user, course_key=self.course_id)
+            return response.passed
+        except User.DoesNotExist:
+            return False
 
     @XBlock.json_handler
     def studio_submit(self, data, suffix=''):
@@ -212,23 +218,37 @@ class CorfoGenerateXBlock(StudioEditableXBlockMixin, XBlock):
         Called when submitting the form in Studio.
         """
         try:
-            if not self.validate_content(int(data.get('id_content', '0')), data.get('content', '')):
+            if not self.validate_content(int(data.get('id_content', '0')), data.get('content', ''), int(data.get('id_institution', '3093'))):
                 return {'result': 'error'}
             self.display_name = data.get('display_name') or self.display_name.default
             self.display_title = data.get('display_title', '')
             self.id_content = int(data.get('id_content', '0'))
+            self.id_institution = int(data.get('id_institution', '3093'))
             self.content = data.get('content', '')
             return {'result': 'success'}
         except ValueError:
             #if id_content type is not Integer            
             return {'result': 'error'}
 
-    def validate_content(self, id_cont, cont):
-        from .models import CorfoCodeMappingContent
+    @XBlock.json_handler
+    def generate_code(self, data, suffix=''):
+        from .views import generate_code
+        from django.contrib.auth.models import User
+        try:
+            user = User.objects.get(id=self.scope_ids.user_id)
+            response = generate_code(user, str(self.course_id), self.id_institution, self.id_content)
+            return response
+        except User.DoesNotExist:
+            return {'result':'error', 'status': 5, 'message': 'Usuario no ha iniciado sesión, actualice la página e intente nuevamente, si el problema persiste contáctese con mesa de ayuda <a href="/contact_form" target="_blank">presionando aquí</a>.'}
+
+    def validate_content(self, id_cont, cont, id_institution):
+        from .models import CorfoCodeMappingContent, CorfoCodeInstitution
         try:
             corfomapping = CorfoCodeMappingContent.objects.get(id_content=id_cont, content=cont)
+            if id_institution != 3093:
+                institution = CorfoCodeInstitution.objects.get(id_institution=id_institution)
             return True
-        except CorfoCodeMappingContent.DoesNotExist:
+        except (CorfoCodeMappingContent.DoesNotExist, CorfoCodeInstitution.DoesNotExist) as e:
             return False
 
     def render_template(self, template_path, context):

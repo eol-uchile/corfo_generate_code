@@ -14,6 +14,19 @@
       </li>
       <li class="field comp-setting-entry is-set">
         <div class="wrapper-comp-setting">
+          <label class="label setting-label" for="institution">Institución</label>
+          <select name="institution" id="corfogeneratecode_institution">
+            {% for institution in list_institution %}
+              <option value="{{ institution.id_institution }}" {% if institution.id_institution == xblock.id_institution %}selected{% endif %}>{{ institution.institution }}</option>
+            {% endfor %}
+            {% if len_list_institution == 0 %}
+              <option value="3093" selected>EOL</option>
+            {% endif %}
+          </select>
+        </div>
+      </li>
+      <li class="field comp-setting-entry is-set">
+        <div class="wrapper-comp-setting">
           <label class="label setting-label" for="content">Contenido</label>
           <select name="content" id="corfogeneratecode_content">
             {% for content in list_content %}

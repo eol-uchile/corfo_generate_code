@@ -10,7 +10,9 @@ from opaque_keys import InvalidKeyError
 from opaque_keys.edx.keys import CourseKey
 from django.http import Http404, HttpResponse, JsonResponse
 from lms.djangoapps.grades.course_grade_factory import CourseGradeFactory
-from .models import CorfoCodeUser, CorfoCodeMappingContent
+from .models import CorfoCodeUser, CorfoCodeMappingContent, CorfoCodeInstitution
+from decimal import Decimal, ROUND_HALF_UP
+from datetime import datetime
 from django.core.cache import cache
 import requests
 import json
@@ -18,51 +20,55 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-def generate_code(request):
-    if request.method != "GET":
-        return HttpResponse(status=400)
-
-    if validate_data(request):
-        course_key = CourseKey.from_string(request.GET.get('course_id'))
-        passed, percent = user_course_passed(request.user, course_key)
-        id_content = int(request.GET.get('id_content', '0'))
+def generate_code(user, course_id, id_institution, id_content):
+    if validate_data(user, course_id, id_institution, id_content):
+        course_key = CourseKey.from_string(course_id)
+        passed, percent = user_course_passed(user, course_key)
+        id_content = int(id_content)
+        id_institution = int(id_institution)
         if passed is None:
-            return JsonResponse({'result':'error', 'status': 6, 'message': 'Un error inesperado ha ocurrido, actualice la página e intente nuevamente, si el problema persiste contáctese con mesa de ayuda.'}, safe=False)
+            return {'result':'error', 'status': 6, 'message': 'Un error inesperado ha ocurrido, actualice la página e intente nuevamente, si el problema persiste contáctese con mesa de ayuda <a href="/contact_form" target="_blank">presionando aquí</a>.'}
         if passed is False:
-            logger.error('CorfoGenerateCode - User dont passed course, user: {}, course: {}'.format(request.user, str(course_key)))
-            return JsonResponse({'result':'error', 'status': 0, 'message': 'Usuario no ha aprobado el curso todavía.'}, safe=False)
+            logger.error('CorfoGenerateCode - User dont passed course, user: {}, course: {}'.format(user, course_id))
+            return {'result':'error', 'status': 0, 'message': 'Usuario no ha aprobado el curso todavía.'}
         mapp_content = CorfoCodeMappingContent.objects.get(id_content=id_content)
-        corfouser, created = CorfoCodeUser.objects.get_or_create(user=request.user, mapping_content=mapp_content)
+        corfouser, created = CorfoCodeUser.objects.get_or_create(user=user, mapping_content=mapp_content)
         user_rut = get_user_rut(corfouser)
-        if corfouser.code != '':
-            logger.info('CorfoGenerateCode - User already have code, user: {}, course: {}'.format(request.user, str(course_key)))
-            return JsonResponse({'result':'success', 'code': corfouser.code, 'user_rut': user_rut}, safe=False)
+        if corfouser.corfo_save and corfouser.code != '':
+            logger.info('CorfoGenerateCode - User already have code, user: {}, course: {}'.format(user, course_id))
+            return {'result':'success', 'code': corfouser.code, 'user_rut': user_rut}
+
+        if corfouser.code == '':
+            corfouser.code = generate_code_corfo(user.id)
+            corfouser.corfo_save = False
+            corfouser.created_at = datetime.now()
+            corfouser.save()
         token = get_credentential()
         if token is None:
-            logger.error('CorfoGenerateCode - Error to get token, user: {}, course: {}'.format(request.user, str(course_key)))
-            return JsonResponse({'result':'error', 'status': 1, 'message': 'Un error inesperado ha ocurrido, actualice la página e intente nuevamente, si el problema persiste contáctese con mesa de ayuda.'}, safe=False)
+            logger.error('CorfoGenerateCode - Error to get token, user: {}, course: {}'.format(user, course_id))
+            return {'result':'error', 'status': 1, 'message': 'Un error inesperado ha ocurrido, actualice la página e intente nuevamente, si el problema persiste contáctese con mesa de ayuda <a href="/contact_form" target="_blank">presionando aquí</a>.'}
 
         if user_rut is None:
-            logger.error('CorfoGenerateCode - User dont have edxloginuser.run, user: {}, course: {}'.format(request.user, str(course_key)))
-            return JsonResponse({'result':'error', 'status': 2, 'message': 'Usuario no tiene su Rut configurado, contáctese con mesa de ayuda (eol-ayuda@uchile.cl) para más información'}, safe=False)
+            logger.error('CorfoGenerateCode - User dont have edxloginuser.run, user: {}, course: {}'.format(user, course_id))
+            return {'result':'error', 'status': 2, 'message': 'Usuario no tiene su Rut configurado, contáctese con mesa de ayuda <a href="/contact_form" target="_blank">presionando aquí</a> para más información'}
 
-        content = request.GET.get('content','')
-        code = generate_code_corfo(request.user.id)
         grade_cutoff = get_grade_cutoff(course_key)
         if grade_cutoff is None:
-            return JsonResponse({'result':'error', 'status': 7, 'message': 'Un error inesperado ha ocurrido, actualice la página e intente nuevamente, si el problema persiste contáctese con mesa de ayuda.'}, safe=False)
-        score = grade_percent_scaled(percent, grade_cutoff)
-        response = validate_mooc(token, code, str(score), id_content, content, user_rut, request.user.email)
-        if response['result'] == 'error':
-            return JsonResponse({'result':'error', 'status': 3, 'message': 'Un error inesperado ha ocurrido, actualice la página e intente nuevamente, si el problema persiste contáctese con mesa de ayuda.'}, safe=False)
-        if response['Status'] != 0 or response['Data'] is None:
-            logger.error('CorfoGenerateCode - Error validate api in status or data, user: {}, course: {}, response: {}'.format(request.user, str(course_key), response))
-            return JsonResponse({'result':'error', 'status': 4, 'message': 'Un error inesperado ha ocurrido, actualice la página e intente nuevamente, si el problema persiste contáctese con mesa de ayuda.'}, safe=False)
+            return {'result':'error', 'status': 7, 'message': 'Un error inesperado ha ocurrido, actualice la página e intente nuevamente, si el problema persiste contáctese con mesa de ayuda <a href="/contact_form" target="_blank">presionando aquí</a><a href="/contact_form" target="_blank">presionando aquí</a>.'}
 
-        corfouser.code = code
+        score = grade_percent_scaled(percent, grade_cutoff)
+        response = validate_mooc(token, corfouser.code, str(score), id_content, user_rut, user.email, id_institution)
+        if response['result'] == 'error':
+            return {'result':'error', 'status': 3, 'message': 'Un error inesperado ha ocurrido, actualice la página e intente nuevamente, si el problema persiste contáctese con mesa de ayuda <a href="/contact_form" target="_blank">presionando aquí</a>.'}
+        if response['result'] == 'error_success':
+            logger.error('CorfoGenerateCode - Error validate api in status or data, user: {}, course: {}, response: {}'.format(user, course_id, response))
+            return {'result':'error', 'status': 4, 'message': 'Un error inesperado ha ocurrido, actualice la página e intente nuevamente, si el problema persiste contáctese con mesa de ayuda <a href="/contact_form" target="_blank">presionando aquí</a>.'}
+
+        corfouser.corfo_save = True
+        corfouser.created_at = datetime.now()
         corfouser.save()
-        return JsonResponse({'result':'success', 'code': code, 'user_rut': user_rut}, safe=False)
-    return JsonResponse({'result':'error', 'status': 5, 'message': 'Usuario no ha iniciado sesión o error en parámetros, actualice la página e intente nuevamente, si el problema persiste contáctese con mesa de ayuda.'}, safe=False)
+        return {'result':'success', 'code': corfouser.code, 'user_rut': user_rut}
+    return {'result':'error', 'status': 5, 'message': 'Usuario no ha iniciado sesión o error en parámetros, actualice la página e intente nuevamente, si el problema persiste contáctese con mesa de ayuda <a href="/contact_form" target="_blank">presionando aquí</a>.'}
 
 def get_user_rut(corfouser):
     """
@@ -75,7 +81,7 @@ def get_user_rut(corfouser):
     except (AttributeError, ValueError) as e:
         return None
 
-def validate_data(request):
+def validate_data(user, course_id, id_institution, id_content):
     """
         Validate data
     """
@@ -83,30 +89,33 @@ def validate_data(request):
         logger.error('CorfoGenerateCode - settings no configurate')
         return False
 
-    if request.user.is_anonymous:
+    if user.is_anonymous:
         logger.error('CorfoGenerateCode - User is anonymous')
         return False
     try:
-        if int(request.GET.get('id_content','0')) == 0:
-            logger.error('CorfoGenerateCode - id_content is empty, user: {}, course: {}'.format(request.user, request.GET.get('course_id','')))
+        if int(id_content) == 0:
+            logger.error('CorfoGenerateCode - id_content is empty, user: {}, course: {}'.format(user, course_id))
             return False
     except ValueError:
-        logger.error('CorfoGenerateCode - id_content is not Integer, user: {}, course: {}, id_content: {}'.format(request.user, request.GET.get('course_id',''), request.GET.get('id_content','0')))
+        logger.error('CorfoGenerateCode - id_content is not Integer, user: {}, course: {}, id_content: {}'.format(user, course_id, id_content))
         return False
 
-    if request.GET.get('content', '') == '':
-        logger.error('CorfoGenerateCode - content is empty, user: {}, course: {}'.format(request.user, request.GET.get('course_id','')))
-        return False
     try:
-        course_key = CourseKey.from_string(request.GET.get('course_id',''))
+        if int(id_institution) != 3093:
+            institution = CorfoCodeInstitution.objects.get(id_institution=int(id_institution))
+    except (ValueError, CorfoCodeInstitution.DoesNotExist ) as e:
+        logger.error('CorfoGenerateCode - id_institution is not Integer or dont exists, user: {}, course: {}, id_institution: {}'.format(user, course_id, id_institution))
+        return False
+
+    try:
+        course_key = CourseKey.from_string(course_id)
     except InvalidKeyError:
-        logger.error('CorfoGenerateCode - InvalidKeyError course_id, user: {}, course: {}'.format(request.user, request.GET.get('course_id','')))
+        logger.error('CorfoGenerateCode - InvalidKeyError course_id, user: {}, course: {}'.format(user, course_id))
         return False
     try:
-        corfomapping = CorfoCodeMappingContent.objects.get(id_content=int(request.GET.get('id_content','0')), content=request.GET.get('content', ''))
-        return True
+        corfomapping = CorfoCodeMappingContent.objects.get(id_content=int(id_content))
     except CorfoCodeMappingContent.DoesNotExist:
-        logger.error('CorfoGenerateCode - CorfoCodeMappingContent.DoesNotExist user: {}, course: {}, id_content: {}, content: {}'.format(request.user, request.GET.get('course_id',''), request.GET.get('id_content'),request.GET.get('content')))
+        logger.error('CorfoGenerateCode - CorfoCodeMappingContent.DoesNotExist user: {}, course: {}, id_content: {}'.format(user, course_id, id_content))
         return False
     return True
 
@@ -114,8 +123,7 @@ def check_settings():
     return (is_empty(settings.CORFOGENERATE_URL_TOKEN) or
         is_empty(settings.CORFOGENERATE_CLIENT_ID) or
         is_empty(settings.CORFOGENERATE_CLIENT_SECRET) or
-        is_empty(settings.CORFOGENERATE_URL_VALIDATE) or
-        is_empty(settings.CORFOGENERATE_ID_INSTITUTION))
+        is_empty(settings.CORFOGENERATE_URL_VALIDATE))
 
 def is_empty(attr):
     """
@@ -186,7 +194,7 @@ def get_credentential():
     
     return token
 
-def validate_mooc(token, code, score, id_content, content, user_rut, email):
+def validate_mooc(token, code, score, id_content, user_rut, email, id_institution):
     """
        Post to Corfo with user data
     """
@@ -195,7 +203,7 @@ def validate_mooc(token, code, score, id_content, content, user_rut, email):
         'Authorization': 'Bearer {}'.format(token)
     }
     body = {
-        "Institucion": int(settings.CORFOGENERATE_ID_INSTITUTION),
+        "Institucion": id_institution,
         "Rut": user_rut,
         "Contenido": id_content,
         "NombreContenido": '',
@@ -212,12 +220,16 @@ def validate_mooc(token, code, score, id_content, content, user_rut, email):
         if r.status_code == 200:
             data = r.json()
             if data == message_error:
-                logger.error('CorfoGenerateCode - Error to validate api, user_rut: {}, response: {}'.format(user_rut, r.__dict__))
+                logger.error('CorfoGenerateCode - Error to validate api, user_rut: {}, response: {}, response_status_code: {}'.format(user_rut, r.text, r.status_code))
                 return {'result':'error'}
-            data['result'] = 'success'
+            elif not data['Success']:
+                logger.error('CorfoGenerateCode - Error to validate api, user_rut: {}, response: {}, response_status_code: {}'.format(user_rut, r.text, r.status_code))
+                data['result'] = 'error_success'
+            else:
+                data['result'] = 'success'
             return data
         else:
-            logger.error('CorfoGenerateCode - Error to validate api, user_rut: {}, response: {}'.format(user_rut, r.__dict__))
+            logger.error('CorfoGenerateCode - Error to validate api, user_rut: {}, response: {}, response_status_code: {}'.format(user_rut, r.text, r.status_code))
             return {'result':'error'}
     except Exception as e:
         logger.error('CorfoGenerateCode - Error to validate_mooc, exception: {}'.format(str(e)))
@@ -249,12 +261,15 @@ def get_grade_cutoff(course_key):
         logger.error(error_str, str(course_key), str(exception))
         return None
 
-def grade_percent_scaled( grade_percent, grade_cutoff):
+def grade_percent_scaled(grade_percent, grade_cutoff):
     """
         EOL: Scale grade percent by grade cutoff. Grade between 1.0 - 7.0
     """
     if grade_percent == 0.:
         return 1.
     if grade_percent < grade_cutoff:
-        return round(10. * (3. / grade_cutoff * grade_percent + 1.)) / 10.
-    return round((3. / (1. - grade_cutoff) * grade_percent + (7. - (3. / (1. - grade_cutoff)))) * 10.) / 10.
+        return round_up((Decimal('3') / Decimal(str(grade_cutoff)) * Decimal(str(grade_percent)) + Decimal('1')))
+    return round_up(Decimal('3') / Decimal(str(1. - grade_cutoff)) * Decimal(str(grade_percent)) + (Decimal('7') - (Decimal('3') / Decimal(str(1. - grade_cutoff)))))
+
+def round_up(number):
+    return float(Decimal(str(float(number))).quantize(Decimal('0.1'), ROUND_HALF_UP))

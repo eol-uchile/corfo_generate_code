@@ -6,7 +6,7 @@
       {% if passed is False %}
          <label style="cursor: text;">Debe aprobar el curso para generar el código de certificación.</label>
       {% else %}
-         {% if code == '' %}
+         {% if corfo_save is False or code == '' %}
             <div id="ui-loading-corfogeneratecode-load" class="ui-loading is-hidden" style="box-shadow: none;">
                <p>
                <span class="spin">

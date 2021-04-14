@@ -22,11 +22,11 @@
     color: #721c24 !important;
 }
 
-#corfogeneratecode_content:active {
+#corfogeneratecode_content:active, #corfogeneratecode_institution:active {
     background-color: #83aebb52 !important;
 }
 
-#corfogeneratecode_content:focus {
+#corfogeneratecode_content:focus, #corfogeneratecode_institution:focus {
     box-shadow: 0 0 1px rgb(0 0 0 / 20%);
     transition: opacity 0.25s ease-in-out 0s;
     background-color: #83aebb52;

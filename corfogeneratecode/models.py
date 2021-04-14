@@ -1,6 +1,5 @@
 from django.contrib.auth.models import User
 from django.db import models
-
 from opaque_keys.edx.django.models import CourseKeyField
 
 # Create your models here.
@@ -11,6 +10,13 @@ class CorfoCodeMappingContent(models.Model):
 
     def __str__(self):
         return '(%s) -> %s' % (self.id_content, self.content)
+
+class CorfoCodeInstitution(models.Model):
+    id_institution = models.IntegerField(unique=True, default=0)
+    institution = models.CharField(max_length=255, default="")
+
+    def __str__(self):
+        return '(%s) -> %s' % (self.id_institution, self.institution)
 
 class CorfoCodeUser(models.Model):
     class Meta:
@@ -23,7 +29,9 @@ class CorfoCodeUser(models.Model):
     user = models.ForeignKey(
         User,
         on_delete=models.CASCADE)
-    code = models.CharField(max_length=20)
+    code = models.CharField(max_length=20, blank=True)
+    created_at = models.DateTimeField(auto_now=True, blank=True)
+    corfo_save = models.BooleanField(default=False)
     mapping_content = models.ForeignKey(
         CorfoCodeMappingContent,
         on_delete=models.CASCADE,
