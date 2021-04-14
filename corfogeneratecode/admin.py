@@ -5,6 +5,7 @@ from .models import CorfoCodeUser, CorfoCodeMappingContent, CorfoCodeInstitution
 
 
 class CorfoCodeUserAdmin(admin.ModelAdmin):
+    raw_id_fields = ('user',)
     list_display = ('user', 'mapping_content', 'code', 'corfo_save', 'created_at')
     search_fields = ['user__username', 'mapping_content__id_content','mapping_content__content', 'code', 'created_at']
     ordering = ['-created_at']
