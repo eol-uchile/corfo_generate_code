@@ -37,6 +37,7 @@ def generate_code(user, course_id, id_institution, id_content):
         if corfouser.corfo_save and corfouser.code != '':
             logger.info('CorfoGenerateCode - User already have code, user: {}, course: {}'.format(user, course_id))
             return {'result':'success', 'code': corfouser.code, 'user_rut': user_rut}
+
         if corfouser.code == '':
             corfouser.code = generate_code_corfo(user.id)
             corfouser.corfo_save = False
