@@ -7,15 +7,15 @@ from django.test import TestCase, Client
 from django.test import Client
 from django.conf import settings
 from django.contrib.auth.models import User
-from util.testing import UrlResetMixin
+from common.djangoapps.util.testing import UrlResetMixin
 from urllib.parse import parse_qs
 from opaque_keys.edx.locator import CourseLocator
-from student.tests.factories import CourseEnrollmentAllowedFactory, UserFactory, CourseEnrollmentFactory
+from common.djangoapps.student.tests.factories import CourseEnrollmentAllowedFactory, UserFactory, CourseEnrollmentFactory
 from xmodule.modulestore.tests.factories import CourseFactory, ItemFactory
 from xmodule.modulestore import ModuleStoreEnum
 from xmodule.modulestore.tests.django_utils import ModuleStoreTestCase
 from openedx.core.djangoapps.content.course_overviews.models import CourseOverview
-from student.roles import CourseInstructorRole, CourseStaffRole
+from common.djangoapps.student.roles import CourseInstructorRole, CourseStaffRole
 import json
 import urllib.parse
 from xblock.field_data import DictFieldData
@@ -66,7 +66,7 @@ class TestCorfoGenerateXBlock(GradeTestBase):
         CorfoCodeMappingContent.objects.create(id_content=200, content='testtest')
         self.grade_factory = CourseGradeFactory()
         self.xblock = self.make_an_xblock()
-        with patch('student.models.cc.User.save'):
+        with patch('common.djangoapps.student.models.cc.User.save'):
             # staff user
             self.client = Client()
             user = UserFactory(
@@ -346,7 +346,7 @@ class TestCorfoGenerateView(GradeTestBase):
 
         self.grade_factory = CourseGradeFactory()
         CorfoCodeMappingContent.objects.create(id_content=200, content='testtest')
-        with patch('student.models.cc.User.save'):
+        with patch('common.djangoapps.student.models.cc.User.save'):
             # staff user
             self.client = Client()
             user = UserFactory(
