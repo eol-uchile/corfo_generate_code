@@ -76,8 +76,13 @@ def get_user_rut(corfouser):
     """
     try:
         aux_run = corfouser.user.edxloginuser.run
-        run = str(int(aux_run[:-1])) + aux_run[-1]
-        return run
+        if aux_run[0] == 'P':
+            return aux_run
+        elif aux_run[0].isalpha():
+            return None
+        else:
+            run = str(int(aux_run[:-1])) + aux_run[-1]
+            return run
     except (AttributeError, ValueError) as e:
         return None
 

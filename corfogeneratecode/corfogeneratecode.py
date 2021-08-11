@@ -189,8 +189,13 @@ class CorfoGenerateXBlock(StudioEditableXBlockMixin, XBlock):
         try:
             corfouser = CorfoCodeUser.objects.get(user=self.scope_ids.user_id, mapping_content__id_content=self.id_content)
             aux_run = corfouser.user.edxloginuser.run
-            run = str(int(aux_run[:-1])) + aux_run[-1]
-            return run
+            if aux_run[0] == 'P':
+                return aux_run
+            elif aux_run[0].isalpha():
+                return ''
+            else:
+                run = str(int(aux_run[:-1])) + aux_run[-1]
+                return run
         except (CorfoCodeUser.DoesNotExist, AttributeError, ValueError) as e:
             return ''
 
