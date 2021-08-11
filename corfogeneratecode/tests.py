@@ -338,6 +338,116 @@ class TestCorfoGenerateXBlock(GradeTestBase):
             corfouser = CorfoCodeUser.objects.get(user=self.student, mapping_content__id_content=self.xblock.id_content)
             self.assertEqual(data['code'], corfouser.code)
             self.assertTrue(corfouser.corfo_save)
+    
+    @override_settings(CORFOGENERATE_URL_TOKEN="aaaaa")
+    @override_settings(CORFOGENERATE_CLIENT_ID="aaaaa")
+    @override_settings(CORFOGENERATE_CLIENT_SECRET="aaaaa")
+    @override_settings(CORFOGENERATE_URL_VALIDATE="aaaaa")
+    @patch('requests.post')
+    def test_block_generate_code_with_passport(self, post):
+        """
+            Verify generate_code() is working whern user have passport
+        """
+        try:
+            from unittest.case import SkipTest
+            from uchileedxlogin.models import EdxLoginUser
+            EdxLoginUser.objects.create(user=self.student, run='P009472337K')
+        except ImportError:
+            self.skipTest("import error uchileedxlogin")
+
+        request = TestRequest()
+        request.method = 'POST'
+        self.xblock.xmodule_runtime.user_is_staff = True
+        data = json.dumps({'display_name': 'testname', "id_content": '200', "content": 'testtest', 'display_title': 'testtitle'})
+        request.body = data.encode()
+        response = self.xblock.studio_submit(request)
+        self.assertEqual(self.xblock.display_name, 'testname')
+        self.assertEqual(self.xblock.display_title, 'testtitle')
+        self.assertEqual(self.xblock.id_content, 200)
+        self.assertEqual(self.xblock.id_institution, 3093)
+        self.assertEqual(self.xblock.content, 'testtest')
+
+        CorfoCodeInstitution.objects.create(id_institution=self.xblock.id_institution)
+        post_data = {
+                'Data': 0,
+                'Message': None,
+                'Status': 0,
+                'Success': True
+            }
+        resp_data = {
+            "access_token": "IE742SAsEMadiliCt1w582TMnvj98aDyS6L7BXSFP84vto914p77nX",
+            "token_type": "Bearer",
+            "expires_in": 3599,
+            "scope": "resource.READ"
+        }
+        post.side_effect = [namedtuple("Request", ["status_code", "json"])(200, lambda:resp_data) ,namedtuple("Request", ["status_code", "json"])(200, lambda:post_data)]
+        with mock_get_score(3, 4):
+            self.grade_factory.update(self.student, self.course, force_update_subsections=True)
+        with mock_get_score(3, 4):
+            request = TestRequest()
+            request.method = 'POST'
+            self.xblock.xmodule_runtime.user_is_staff = False
+            self.xblock.scope_ids.user_id = self.student.id
+            data = json.dumps({})
+            request.body = data.encode()
+            response = self.xblock.generate_code(request)
+            data = json.loads(response._app_iter[0].decode())
+            self.assertEqual(data['result'], 'success')
+            corfouser = CorfoCodeUser.objects.get(user=self.student, mapping_content__id_content=self.xblock.id_content)
+            self.assertEqual(data['code'], corfouser.code)
+            self.assertTrue(corfouser.corfo_save)
+    
+    @override_settings(CORFOGENERATE_URL_TOKEN="aaaaa")
+    @override_settings(CORFOGENERATE_CLIENT_ID="aaaaa")
+    @override_settings(CORFOGENERATE_CLIENT_SECRET="aaaaa")
+    @override_settings(CORFOGENERATE_URL_VALIDATE="aaaaa")
+    @patch('requests.post')
+    def test_block_generate_code_no_passport(self, post):
+        """
+            Verify generate_code() is working
+        """
+        try:
+            from unittest.case import SkipTest
+            from uchileedxlogin.models import EdxLoginUser
+            EdxLoginUser.objects.create(user=self.student, run='CA009472337K')
+        except ImportError:
+            self.skipTest("import error uchileedxlogin")
+
+        request = TestRequest()
+        request.method = 'POST'
+        self.xblock.xmodule_runtime.user_is_staff = True
+        data = json.dumps({'display_name': 'testname', "id_content": '200', "content": 'testtest', 'display_title': 'testtitle'})
+        request.body = data.encode()
+        response = self.xblock.studio_submit(request)
+        self.assertEqual(self.xblock.display_name, 'testname')
+        self.assertEqual(self.xblock.display_title, 'testtitle')
+        self.assertEqual(self.xblock.id_content, 200)
+        self.assertEqual(self.xblock.id_institution, 3093)
+        self.assertEqual(self.xblock.content, 'testtest')
+
+        CorfoCodeInstitution.objects.create(id_institution=self.xblock.id_institution)
+        resp_data = {
+            "access_token": "IE742SAsEMadiliCt1w582TMnvj98aDyS6L7BXSFP84vto914p77nX",
+            "token_type": "Bearer",
+            "expires_in": 3599,
+            "scope": "resource.READ"
+        }
+        post.side_effect = [namedtuple("Request", ["status_code", "json"])(200, lambda:resp_data) ,]
+        with mock_get_score(3, 4):
+            self.grade_factory.update(self.student, self.course, force_update_subsections=True)
+        with mock_get_score(3, 4):
+            request = TestRequest()
+            request.method = 'POST'
+            self.xblock.xmodule_runtime.user_is_staff = False
+            self.xblock.scope_ids.user_id = self.student.id
+            data = json.dumps({})
+            request.body = data.encode()
+            response = self.xblock.generate_code(request)
+            data = json.loads(response._app_iter[0].decode())
+            self.assertEqual(data['result'], 'error')
+            corfouser = CorfoCodeUser.objects.get(user=self.student, mapping_content__id_content=self.xblock.id_content)
+            self.assertTrue('code' not in data)
+            self.assertFalse(corfouser.corfo_save)
 
 class TestCorfoGenerateView(GradeTestBase):
 
@@ -483,6 +593,40 @@ class TestCorfoGenerateView(GradeTestBase):
     @override_settings(CORFOGENERATE_CLIENT_SECRET="aaaaa")
     @override_settings(CORFOGENERATE_URL_VALIDATE="aaaaa")
     @patch('requests.post')
+    def test_generate_code_request_user_no_passport(self, post):
+        """
+            test views.generate_code(request) when user dont have rut or passport
+        """
+        try:
+            from unittest.case import SkipTest
+            from uchileedxlogin.models import EdxLoginUser
+            EdxLoginUser.objects.create(user=self.student, run='CA09472337K')
+        except ImportError:
+            self.skipTest("import error uchileedxlogin")
+        id_content = 200
+        resp_data = {
+            "access_token": "IE742SAsEMadiliCt1w582TMnvj98aDyS6L7BXSFP84vto914p77nX",
+            "token_type": "Bearer",
+            "expires_in": 3599,
+            "scope": "resource.READ"
+        }
+        post.side_effect = [namedtuple("Request", ["status_code", "json"])(200, lambda:resp_data)]
+        with mock_get_score(3, 4):
+            self.grade_factory.update(self.student, self.course, force_update_subsections=True)
+        with mock_get_score(3, 4):
+            data = generate_code(self.student, str(self.course.id), 3093, id_content)
+            self.assertEqual(data['result'], 'error')
+            self.assertEqual(data['status'], 2)
+            mapp_content = CorfoCodeMappingContent.objects.get(id_content=id_content)
+            corfouser = CorfoCodeUser.objects.get(user=self.student, mapping_content=mapp_content)
+            self.assertFalse(corfouser.corfo_save)
+            self.assertTrue(corfouser.code != '')
+
+    @override_settings(CORFOGENERATE_URL_TOKEN="aaaaa")
+    @override_settings(CORFOGENERATE_CLIENT_ID="aaaaa")
+    @override_settings(CORFOGENERATE_CLIENT_SECRET="aaaaa")
+    @override_settings(CORFOGENERATE_URL_VALIDATE="aaaaa")
+    @patch('requests.post')
     def test_generate_code_request_user_wrong_rut(self, post):
         """
             test views.generate_code(request) when user have wrong edxloginuser.rut
@@ -490,7 +634,7 @@ class TestCorfoGenerateView(GradeTestBase):
         try:
             from unittest.case import SkipTest
             from uchileedxlogin.models import EdxLoginUser
-            EdxLoginUser.objects.create(user=self.student, run='P09472337K')
+            EdxLoginUser.objects.create(user=self.student, run='0947P2337K')
         except ImportError:
             self.skipTest("import error uchileedxlogin")
 
@@ -746,6 +890,46 @@ class TestCorfoGenerateView(GradeTestBase):
             from unittest.case import SkipTest
             from uchileedxlogin.models import EdxLoginUser
             EdxLoginUser.objects.create(user=self.student, run='009472337K')
+        except ImportError:
+            self.skipTest("import error uchileedxlogin")
+
+        id_content = 200
+        post_data = {
+                'Data': 0,
+                'Message': None,
+                'Status': 0,
+                'Success': True
+            }
+        resp_data = {
+            "access_token": "IE742SAsEMadiliCt1w582TMnvj98aDyS6L7BXSFP84vto914p77nX",
+            "token_type": "Bearer",
+            "expires_in": 3599,
+            "scope": "resource.READ"
+        }
+        post.side_effect = [namedtuple("Request", ["status_code", "json"])(200, lambda:resp_data) ,namedtuple("Request", ["status_code", "json"])(200, lambda:post_data)]
+        with mock_get_score(3, 4):
+            self.grade_factory.update(self.student, self.course, force_update_subsections=True)
+        with mock_get_score(3, 4):
+            data = generate_code(self.student, str(self.course.id), 3093, id_content)
+            self.assertEqual(data['result'], 'success')
+            corfouser = CorfoCodeUser.objects.get(user=self.student, mapping_content__id_content=id_content)
+            self.assertEqual(data['code'], corfouser.code)
+            self.assertTrue(corfouser.corfo_save)
+
+    @override_settings(CORFOGENERATE_URL_TOKEN="aaaaa")
+    @override_settings(CORFOGENERATE_CLIENT_ID="aaaaa")
+    @override_settings(CORFOGENERATE_CLIENT_SECRET="aaaaa")
+    @override_settings(CORFOGENERATE_URL_VALIDATE="aaaaa")
+    @patch('requests.post')
+    def test_generate_code_success_with_passport(self, post):
+        """
+            test views.generate_code(request) success process
+        """
+        CorfoCodeInstitution.objects.create(id_institution=3094)
+        try:
+            from unittest.case import SkipTest
+            from uchileedxlogin.models import EdxLoginUser
+            EdxLoginUser.objects.create(user=self.student, run='P09472337K')
         except ImportError:
             self.skipTest("import error uchileedxlogin")
 
