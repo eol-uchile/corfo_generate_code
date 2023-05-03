@@ -277,7 +277,6 @@ class CorfoGenerateXBlock(StudioEditableXBlockMixin, XBlock):
                 print('asdasdasdasdas')
                 return False
         except Exception as e:
-            print(str(e))
             log.info('CorfoGenerateXBlock - Error validarRut, rut: {}'.format(rut))
             return False
 
