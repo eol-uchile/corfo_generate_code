@@ -21,7 +21,10 @@
     border-color: #f5c6cb;
     color: #721c24 !important;
 }
-
+.corfogeneratecode_block .corfogeneratecode_error {
+    color: #721c24 !important;
+    font-weight: bold;
+}
 #corfogeneratecode_content:active, #corfogeneratecode_institution:active {
     background-color: #83aebb52 !important;
 }

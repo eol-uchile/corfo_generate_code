@@ -8,6 +8,7 @@ from django.conf import settings as DJANGO_SETTINGS
 from django.template import Context, Template
 
 # Edx dependencies
+from itertools import cycle
 from xblock.core import XBlock
 from xblock.fields import Integer, Scope, String
 from xblock.fragment import Fragment
@@ -159,9 +160,17 @@ class CorfoGenerateXBlock(StudioEditableXBlockMixin, XBlock):
             Get user data from EdxLoginUser model
         """
         from .models import CorfoCodeUser
-        try:
+        from django.contrib.auth.models import User
+        if CorfoCodeUser.objects.filter(user=self.scope_ids.user_id, mapping_content__id_content=self.id_content).exists():
             corfouser = CorfoCodeUser.objects.get(user=self.scope_ids.user_id, mapping_content__id_content=self.id_content)
-            aux_run = corfouser.user.edxloginuser.run
+            user = corfouser.user
+            aux_run = corfouser.rut
+        else:
+            user = User.objects.get(id=self.scope_ids.user_id)
+            aux_run = ''
+        try:
+            if aux_run == '':
+                aux_run = user.edxloginuser.run
             if aux_run[0] == 'P':
                 return aux_run
             elif aux_run[0].isalpha():
@@ -169,7 +178,7 @@ class CorfoGenerateXBlock(StudioEditableXBlockMixin, XBlock):
             else:
                 run = str(int(aux_run[:-1])) + aux_run[-1]
                 return run
-        except (CorfoCodeUser.DoesNotExist, AttributeError, ValueError) as e:
+        except (AttributeError, ValueError) as e:
             return ''
 
     def get_corfo_user_data(self):
@@ -218,6 +227,59 @@ class CorfoGenerateXBlock(StudioEditableXBlockMixin, XBlock):
             return response
         except User.DoesNotExist:
             return {'result':'error', 'status': 5, 'message': 'Usuario no ha iniciado sesión, actualice la página e intente nuevamente, si el problema persiste contáctese con mesa de ayuda <a href="/contact_form" target="_blank">presionando aquí</a>.'}
+
+    @XBlock.json_handler
+    def generate_code_rut(self, data, suffix=''):
+        from .views import generate_code
+        from django.contrib.auth.models import User
+        user_rut = data.get('user_rut', '')
+        if user_rut == '':
+            return {'result':'error', 'status': 8, 'message': 'Debe incluir rut o pasaporte para generar el código.'}
+        user_rut = user_rut.upper()
+        user_rut = user_rut.replace("-", "")
+        user_rut = user_rut.replace(".", "")
+        user_rut = user_rut.strip()
+        if user_rut[0] == 'P':
+            if 5 > len(user_rut[1:]) or len(user_rut[1:]) > 20:
+                return {'result':'error', 'status': 9, 'message': 'El pasaporte {} no es válido.'.format(user_rut)}
+        else:
+            if not self.validarRut(user_rut):
+                return {'result':'error', 'status': 10, 'message': 'El rut {} no es válido.'.format(user_rut)}
+        try:
+            user = User.objects.get(id=self.scope_ids.user_id)
+            response = generate_code(user, str(self.course_id), self.id_institution, self.id_content, user_rut)
+            return response
+        except User.DoesNotExist:
+            return {'result':'error', 'status': 5, 'message': 'Usuario no ha iniciado sesión, actualice la página e intente nuevamente, si el problema persiste contáctese con mesa de ayuda <a href="/contact_form" target="_blank">presionando aquí</a>.'}
+
+    def validarRut(self, rut):
+        """
+            Verify if the 'rut' is valid
+        """
+        try:
+            rut = rut.upper()
+            rut = rut.replace("-", "")
+            rut = rut.replace(".", "")
+            rut = rut.strip()
+            aux = rut[:-1]
+            dv = rut[-1:]
+
+            revertido = list(map(int, reversed(str(aux))))
+            factors = cycle(list(range(2, 8)))
+            s = sum(d * f for d, f in zip(revertido, factors))
+            res = (-s) % 11
+
+            if str(res) == dv:
+                return True
+            elif dv == "K" and res == 10:
+                return True
+            else:
+                print('asdasdasdasdas')
+                return False
+        except Exception as e:
+            print(str(e))
+            log.info('CorfoGenerateXBlock - Error validarRut, rut: {}'.format(rut))
+            return False
 
     def validate_content(self, id_cont, cont, id_institution):
         from .models import CorfoCodeMappingContent, CorfoCodeInstitution

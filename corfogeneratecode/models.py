@@ -30,6 +30,7 @@ class CorfoCodeUser(models.Model):
         User,
         on_delete=models.CASCADE)
     code = models.CharField(max_length=20, blank=True)
+    rut = models.CharField(max_length=30, default="")
     created_at = models.DateTimeField(auto_now=True, blank=True)
     corfo_save = models.BooleanField(default=False)
     mapping_content = models.ForeignKey(
