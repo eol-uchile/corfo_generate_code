@@ -20,7 +20,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-def generate_code(user, course_id, id_institution, id_content):
+def generate_code(user, course_id, id_institution, id_content, usr_rut=None):
     if validate_data(user, course_id, id_institution, id_content):
         course_key = CourseKey.from_string(course_id)
         passed, percent = user_course_passed(user, course_key)
@@ -33,7 +33,7 @@ def generate_code(user, course_id, id_institution, id_content):
             return {'result':'error', 'status': 0, 'message': 'Usuario no ha aprobado el curso todavía.'}
         mapp_content = CorfoCodeMappingContent.objects.get(id_content=id_content)
         corfouser, created = CorfoCodeUser.objects.get_or_create(user=user, mapping_content=mapp_content)
-        user_rut = get_user_rut(corfouser)
+        user_rut = usr_rut or get_user_rut(corfouser)
         if corfouser.corfo_save and corfouser.code != '':
             logger.info('CorfoGenerateCode - User already have code, user: {}, course: {}'.format(user, course_id))
             return {'result':'success', 'code': corfouser.code, 'user_rut': user_rut}
@@ -57,6 +57,8 @@ def generate_code(user, course_id, id_institution, id_content):
             return {'result':'error', 'status': 7, 'message': 'Un error inesperado ha ocurrido, actualice la página e intente nuevamente, si el problema persiste contáctese con mesa de ayuda <a href="/contact_form" target="_blank">presionando aquí</a><a href="/contact_form" target="_blank">presionando aquí</a>.'}
 
         score = grade_percent_scaled(percent, grade_cutoff)
+        corfouser.rut = user_rut
+        corfouser.save()
         response = validate_mooc(token, corfouser.code, str(score), id_content, user_rut, user.email, id_institution)
         if response['result'] == 'error':
             return {'result':'error', 'status': 3, 'message': 'Un error inesperado ha ocurrido, actualice la página e intente nuevamente, si el problema persiste contáctese con mesa de ayuda <a href="/contact_form" target="_blank">presionando aquí</a>.'}

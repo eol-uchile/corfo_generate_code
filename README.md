@@ -6,7 +6,7 @@
 
     docker-compose exec cms pip install -e /openedx/requirements/corfo_generate_code
     docker-compose exec lms pip install -e /openedx/requirements/corfo_generate_code
-    docker-compose exec lms python manage.py lms --settings=prod.production makemigrations
+    docker-compose exec lms python manage.py lms --settings=prod.production makemigrations corfogeneratecode
     docker-compose exec lms python manage.py lms --settings=prod.production migrate
 
 # Configuration

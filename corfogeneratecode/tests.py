@@ -89,6 +89,18 @@ class TestCorfoGenerateXBlock(GradeTestBase):
                 self.student_client.login(
                     username='student',
                     password='12345'))
+            # user student2
+            self.student2_client = Client()
+            self.student2 = UserFactory(
+                username='student2',
+                password='12345',
+                email='student22@edx.org')
+            CourseEnrollmentFactory(
+                user=self.student2, course_id=self.course.id)
+            self.assertTrue(
+                self.student2_client.login(
+                    username='student2',
+                    password='12345'))
 
     def test_user_course_passed(self):
         """
@@ -217,6 +229,7 @@ class TestCorfoGenerateXBlock(GradeTestBase):
         self.assertEqual(response['passed'], False)
         self.assertEqual(response['code'], '')
         self.assertEqual(response['corfo_save'], False)
+        self.assertEqual(response['user_rut'], '')
 
     def test_student_view_user_not_passed_course(self):
         """
@@ -260,7 +273,7 @@ class TestCorfoGenerateXBlock(GradeTestBase):
             response = self.xblock.get_context()
             self.assertEqual(response['passed'], True)
             self.assertEqual(response['code'], corfouser.code)
-            self.assertEqual(response['user_rut'], '')
+            self.assertEqual(response['user_rut'], corfouser.rut)
             self.assertEqual(response['corfo_save'], False)
 
     def test_student_view_user_passed_course_with_corfo_save(self):
@@ -277,7 +290,7 @@ class TestCorfoGenerateXBlock(GradeTestBase):
             response = self.xblock.get_context()
             self.assertEqual(response['passed'], True)
             self.assertEqual(response['code'], corfouser.code)
-            self.assertEqual(response['user_rut'], '')
+            self.assertEqual(response['user_rut'], corfouser.rut)
             self.assertEqual(response['corfo_save'], True)
 
 
@@ -338,7 +351,130 @@ class TestCorfoGenerateXBlock(GradeTestBase):
             corfouser = CorfoCodeUser.objects.get(user=self.student, mapping_content__id_content=self.xblock.id_content)
             self.assertEqual(data['code'], corfouser.code)
             self.assertTrue(corfouser.corfo_save)
+
+    @override_settings(CORFOGENERATE_URL_TOKEN="aaaaa")
+    @override_settings(CORFOGENERATE_CLIENT_ID="aaaaa")
+    @override_settings(CORFOGENERATE_CLIENT_SECRET="aaaaa")
+    @override_settings(CORFOGENERATE_URL_VALIDATE="aaaaa")
+    @patch('requests.post')
+    def test_block_generate_code_rut(self, post):
+        """
+            Verify generate_code_rut() is working
+        """
+        try:
+            from unittest.case import SkipTest
+            from uchileedxlogin.models import EdxLoginUser
+        except ImportError:
+            self.skipTest("import error uchileedxlogin")
+
+        request = TestRequest()
+        request.method = 'POST'
+        self.xblock.xmodule_runtime.user_is_staff = True
+        data = json.dumps({'display_name': 'testname', "id_content": '200', "content": 'testtest', 'display_title': 'testtitle'})
+        request.body = data.encode()
+        response = self.xblock.studio_submit(request)
+        self.assertEqual(self.xblock.display_name, 'testname')
+        self.assertEqual(self.xblock.display_title, 'testtitle')
+        self.assertEqual(self.xblock.id_content, 200)
+        self.assertEqual(self.xblock.id_institution, 3093)
+        self.assertEqual(self.xblock.content, 'testtest')
+
+        CorfoCodeInstitution.objects.create(id_institution=self.xblock.id_institution)
+        post_data = {
+                'Data': 0,
+                'Message': None,
+                'Status': 0,
+                'Success': True
+            }
+        resp_data = {
+            "access_token": "IE742SAsEMadiliCt1w582TMnvj98aDyS6L7BXSFP84vto914p77nX",
+            "token_type": "Bearer",
+            "expires_in": 3599,
+            "scope": "resource.READ"
+        }
+        post.side_effect = [namedtuple("Request", ["status_code", "json"])(200, lambda:resp_data) ,namedtuple("Request", ["status_code", "json"])(200, lambda:post_data)]
+        with mock_get_score(3, 4):
+            self.grade_factory.update(self.student2, self.course, force_update_subsections=True)
+        with mock_get_score(3, 4):
+            request = TestRequest()
+            request.method = 'POST'
+            self.xblock.xmodule_runtime.user_is_staff = False
+            self.xblock.scope_ids.user_id = self.student2.id
+            data = json.dumps({'user_rut': '111111111'})
+            request.body = data.encode()
+            response = self.xblock.generate_code_rut(request)
+            data = json.loads(response._app_iter[0].decode())
+            self.assertEqual(data['result'], 'success')
+            corfouser = CorfoCodeUser.objects.get(user=self.student2, mapping_content__id_content=self.xblock.id_content)
+            self.assertEqual(data['code'], corfouser.code)
+            self.assertEqual('111111111', corfouser.rut)
+            self.assertTrue(corfouser.corfo_save)
+
+
+    def test_block_generate_code_rut_no_rut(self):
+        """
+            Verify generate_code_rut() when missing user_rut params
+        """
+        request = TestRequest()
+        request.method = 'POST'
+        self.xblock.xmodule_runtime.user_is_staff = False
+        self.xblock.scope_ids.user_id = self.student2.id
+        data = json.dumps({})
+        request.body = data.encode()
+        response = self.xblock.generate_code_rut(request)
+        data = json.loads(response._app_iter[0].decode())
+        self.assertEqual(data['result'], 'error')
+        self.assertEqual(data['status'], 8)
+        self.assertFalse(CorfoCodeUser.objects.filter(user=self.student2).exists())
+
+    def test_block_generate_code_rut_wrong_passport(self):
+        """
+            Verify generate_code_rut() when passport is wrong
+        """
+        request = TestRequest()
+        request.method = 'POST'
+        self.xblock.xmodule_runtime.user_is_staff = False
+        self.xblock.scope_ids.user_id = self.student2.id
+        data = json.dumps({'user_rut': 'PASDASDSADSADASDSADSADASDSADSADASDSADSADSADSADSADSADSAD'})
+        request.body = data.encode()
+        response = self.xblock.generate_code_rut(request)
+        data = json.loads(response._app_iter[0].decode())
+        self.assertEqual(data['result'], 'error')
+        self.assertEqual(data['status'], 9)
+        self.assertFalse(CorfoCodeUser.objects.filter(user=self.student2).exists())
+
+    def test_block_generate_code_rut_wrong_rut(self):
+        """
+            Verify generate_code_rut() when user_rut is wrong
+        """
+        request = TestRequest()
+        request.method = 'POST'
+        self.xblock.xmodule_runtime.user_is_staff = False
+        self.xblock.scope_ids.user_id = self.student2.id
+        data = json.dumps({'user_rut': '123456'})
+        request.body = data.encode()
+        response = self.xblock.generate_code_rut(request)
+        data = json.loads(response._app_iter[0].decode())
+        self.assertEqual(data['result'], 'error')
+        self.assertEqual(data['status'], 10)
+        self.assertFalse(CorfoCodeUser.objects.filter(user=self.student2).exists())
     
+    def test_block_generate_code_rut_wrong_rut_2(self):
+        """
+            Verify generate_code_rut() when user_rut is not a 'rut'
+        """
+        request = TestRequest()
+        request.method = 'POST'
+        self.xblock.xmodule_runtime.user_is_staff = False
+        self.xblock.scope_ids.user_id = self.student2.id
+        data = json.dumps({'user_rut': 'fghsdfhdfh'})
+        request.body = data.encode()
+        response = self.xblock.generate_code_rut(request)
+        data = json.loads(response._app_iter[0].decode())
+        self.assertEqual(data['result'], 'error')
+        self.assertEqual(data['status'], 10)
+        self.assertFalse(CorfoCodeUser.objects.filter(user=self.student2).exists())
+
     @override_settings(CORFOGENERATE_URL_TOKEN="aaaaa")
     @override_settings(CORFOGENERATE_CLIENT_ID="aaaaa")
     @override_settings(CORFOGENERATE_CLIENT_SECRET="aaaaa")
