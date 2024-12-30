@@ -1,23 +1,10 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-from mock import patch, Mock, MagicMock
+from mock import patch, Mock
 from collections import namedtuple
-from django.urls import reverse
-from django.test import TestCase, Client
 from django.test import Client
-from django.conf import settings
-from django.contrib.auth.models import User
-from common.djangoapps.util.testing import UrlResetMixin
-from urllib.parse import parse_qs
-from opaque_keys.edx.locator import CourseLocator
-from common.djangoapps.student.tests.factories import CourseEnrollmentAllowedFactory, UserFactory, CourseEnrollmentFactory
-from xmodule.modulestore.tests.factories import CourseFactory, ItemFactory
-from xmodule.modulestore import ModuleStoreEnum
-from xmodule.modulestore.tests.django_utils import ModuleStoreTestCase
-from openedx.core.djangoapps.content.course_overviews.models import CourseOverview
-from common.djangoapps.student.roles import CourseInstructorRole, CourseStaffRole
+from common.djangoapps.student.tests.factories import UserFactory, CourseEnrollmentFactory
 import json
-import urllib.parse
 from xblock.field_data import DictFieldData
 from .views import user_course_passed, grade_percent_scaled, generate_code
 from .corfogeneratecode import CorfoGenerateXBlock
@@ -26,6 +13,7 @@ from lms.djangoapps.grades.tests.utils import mock_get_score
 from lms.djangoapps.grades.tests.base import GradeTestBase
 from lms.djangoapps.grades.course_grade_factory import CourseGradeFactory
 from django.test.utils import override_settings
+
 # Create your tests here.
 
 class TestRequest(object):
