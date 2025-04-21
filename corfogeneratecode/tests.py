@@ -1,18 +1,25 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-from mock import patch, Mock
+# Python Standard Libraries
 from collections import namedtuple
-from django.test import Client
-from common.djangoapps.student.tests.factories import UserFactory, CourseEnrollmentFactory
 import json
+
+# Installed packages (via pip)
+from django.test import Client
+from django.test.utils import override_settings
+from mock import patch, Mock
+
+# Edx dependencies
+from common.djangoapps.student.tests.factories import UserFactory, CourseEnrollmentFactory
+from lms.djangoapps.grades.course_grade_factory import CourseGradeFactory
+from lms.djangoapps.grades.tests.base import GradeTestBase
+from lms.djangoapps.grades.tests.utils import mock_get_score
 from xblock.field_data import DictFieldData
-from .views import user_course_passed, grade_percent_scaled, generate_code
+
+# Internal project dependencies
 from .corfogeneratecode import CorfoGenerateXBlock
 from .models import CorfoCodeUser, CorfoCodeMappingContent, CorfoCodeInstitution
-from lms.djangoapps.grades.tests.utils import mock_get_score
-from lms.djangoapps.grades.tests.base import GradeTestBase
-from lms.djangoapps.grades.course_grade_factory import CourseGradeFactory
-from django.test.utils import override_settings
+from .views import user_course_passed, grade_percent_scaled, generate_code
 
 # Create your tests here.
 
