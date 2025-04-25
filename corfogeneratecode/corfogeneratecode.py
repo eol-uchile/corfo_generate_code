@@ -92,27 +92,6 @@ class CorfoGenerateXBlock(StudioEditableXBlockMixin, XBlock):
         """
         return six.text_type(self.scope_ids.usage_id)
 
-    def is_course_staff(self):
-        # pylint: disable=no-member
-        """
-         Check if user is course staff.
-        """
-        return getattr(self.xmodule_runtime, 'user_is_staff', False)
-
-    def is_instructor(self):
-        # pylint: disable=no-member
-        """
-        Check if user role is instructor.
-        """
-        return self.xmodule_runtime.get_user_role() == 'instructor'
-
-    def show_staff_grading_interface(self):
-        """
-        Return if current user is staff and not in studio.
-        """
-        in_studio_preview = self.scope_ids.user_id is None
-        return self.is_course_staff() and not in_studio_preview
-
     def check_settings(self):
         return (is_empty(DJANGO_SETTINGS.CORFOGENERATE_URL_TOKEN) or
             is_empty(DJANGO_SETTINGS.CORFOGENERATE_CLIENT_ID) or
