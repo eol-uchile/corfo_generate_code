@@ -1,28 +1,22 @@
+# Python Standard Libraries
+import logging
 import pkg_resources
 import six
-import six.moves.urllib.error
-import six.moves.urllib.parse
-import six.moves.urllib.request
 
-import logging
-from six import text_type
+# Installed packages (via pip)
 from django.conf import settings as DJANGO_SETTINGS
-from xblock.core import XBlock
-from xblock.fields import Integer, Scope, String, Dict, Float, Boolean, List, DateTime, JSONField
-from xblock.fragment import Fragment
-from xblockutils.studio_editable import StudioEditableXBlockMixin
-from xblockutils.resources import ResourceLoader
 from django.template import Context, Template
-from opaque_keys import InvalidKeyError
-from opaque_keys.edx.keys import CourseKey
-from django.http import Http404, HttpResponse
-from django.urls import reverse
 
+# Edx dependencies
+from xblock.core import XBlock
+from xblock.fields import Integer, Scope, String
+from xblock.fragment import Fragment
+from xblockutils.resources import ResourceLoader
+from xblockutils.studio_editable import StudioEditableXBlockMixin
 
 log = logging.getLogger(__name__)
 loader = ResourceLoader(__name__)
 # Make '_' a no-op so we can scrape strings
-
 
 def _(text): return text
 
@@ -97,27 +91,6 @@ class CorfoGenerateXBlock(StudioEditableXBlockMixin, XBlock):
         Return the usage_id of the block.
         """
         return six.text_type(self.scope_ids.usage_id)
-
-    def is_course_staff(self):
-        # pylint: disable=no-member
-        """
-         Check if user is course staff.
-        """
-        return getattr(self.xmodule_runtime, 'user_is_staff', False)
-
-    def is_instructor(self):
-        # pylint: disable=no-member
-        """
-        Check if user role is instructor.
-        """
-        return self.xmodule_runtime.get_user_role() == 'instructor'
-
-    def show_staff_grading_interface(self):
-        """
-        Return if current user is staff and not in studio.
-        """
-        in_studio_preview = self.scope_ids.user_id is None
-        return self.is_course_staff() and not in_studio_preview
 
     def check_settings(self):
         return (is_empty(DJANGO_SETTINGS.CORFOGENERATE_URL_TOKEN) or

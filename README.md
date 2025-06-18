@@ -1,5 +1,7 @@
 # Corfo Generate Code XBlock
 
+![Coverage Status](/coverage-badge.svg)
+
 ![https://github.com/eol-uchile/corfo_generate_code/actions](https://github.com/eol-uchile/corfo_generate_code/workflows/Python%20application/badge.svg)
 
 # Install
@@ -23,8 +25,12 @@ Add id_institutions in CorfoCodeInstitution model, default id_institution=3093, 
 ## TESTS
 **Prepare tests:**
 
-    > cd .github/
-    > docker-compose run --rm lms /openedx/requirements/corfo_generate_code/.github/test.sh
+- Install **act** following the instructions in [https://nektosact.com/installation/index.html](https://nektosact.com/installation/index.html)
+
+**Run tests:**
+- In a terminal at the root of the project
+    ```
+    act -W .github/workflows/pythonapp.yml
 
 ## Notes
 

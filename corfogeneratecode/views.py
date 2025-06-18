@@ -1,22 +1,25 @@
 #!/usr/bin/env python
 # -- coding: utf-8 --
+# Python Standard Libraries
+from datetime import datetime
+from decimal import Decimal, ROUND_HALF_UP
+import logging
 
+# Installed packages (via pip)
 from django.conf import settings
-from django.shortcuts import render
-from django.views.generic.base import View
 from django.contrib.auth.base_user import BaseUserManager
+from django.core.cache import cache
+from django.http import Http404
+import requests
+
+# Edx dependencies
 from lms.djangoapps.courseware.courses import get_course_by_id
+from lms.djangoapps.grades.course_grade_factory import CourseGradeFactory
 from opaque_keys import InvalidKeyError
 from opaque_keys.edx.keys import CourseKey
-from django.http import Http404, HttpResponse, JsonResponse
-from lms.djangoapps.grades.course_grade_factory import CourseGradeFactory
+
+# Internal project dependencies
 from .models import CorfoCodeUser, CorfoCodeMappingContent, CorfoCodeInstitution
-from decimal import Decimal, ROUND_HALF_UP
-from datetime import datetime
-from django.core.cache import cache
-import requests
-import json
-import logging
 
 logger = logging.getLogger(__name__)
 

@@ -1,18 +1,28 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-from mock import patch, Mock
+# Python Standard Libraries
 from collections import namedtuple
-from django.test import Client
-from common.djangoapps.student.tests.factories import UserFactory, CourseEnrollmentFactory
 import json
+
+# Installed packages (via pip)
+from django.test import Client
+from django.test.utils import override_settings
+from mock import patch, Mock, MagicMock
+from uchileedxlogin.models import EdxLoginUser
+import six
+
+# Edx dependencies
+from common.djangoapps.student.tests.factories import UserFactory, CourseEnrollmentFactory
+from lms.djangoapps.grades.course_grade_factory import CourseGradeFactory
+from lms.djangoapps.grades.tests.base import GradeTestBase
+from lms.djangoapps.grades.tests.utils import mock_get_score
+from opaque_keys.edx.keys import CourseKey
 from xblock.field_data import DictFieldData
-from .views import user_course_passed, grade_percent_scaled, generate_code
+
+# Internal project dependencies
 from .corfogeneratecode import CorfoGenerateXBlock
 from .models import CorfoCodeUser, CorfoCodeMappingContent, CorfoCodeInstitution
-from lms.djangoapps.grades.tests.utils import mock_get_score
-from lms.djangoapps.grades.tests.base import GradeTestBase
-from lms.djangoapps.grades.course_grade_factory import CourseGradeFactory
-from django.test.utils import override_settings
+from .views import user_course_passed, grade_percent_scaled, generate_code, validate_data, get_grade_cutoff, get_token, validate_mooc
 
 # Create your tests here.
 
@@ -47,6 +57,7 @@ class TestCorfoGenerateXBlock(GradeTestBase):
         xblock.location = course.location
         xblock.course_id = course.id
         xblock.category = 'corfogeneratecode'
+        xblock.scope_ids.usage_id = 2
         return xblock
 
     def setUp(self):
@@ -88,6 +99,14 @@ class TestCorfoGenerateXBlock(GradeTestBase):
             self.xblock.scope_ids.user_id = self.student.id
             passed = self.xblock.user_course_passed()
             self.assertFalse(passed)
+
+    def test_user_course_passed_wrong_user_id(self):
+        """
+            Verify method user_course_passed with wrong user_id
+        """
+        self.xblock.scope_ids.user_id = '111'
+        passed = self.xblock.user_course_passed()
+        self.assertFalse(passed)
     
     def test_validate_field_data(self):
         """
@@ -267,7 +286,23 @@ class TestCorfoGenerateXBlock(GradeTestBase):
             self.assertEqual(response['code'], corfouser.code)
             self.assertEqual(response['user_rut'], '')
             self.assertEqual(response['corfo_save'], True)
+    
+    def test_CorfoCodeMappingContent_str(self):
+        """
+            Test str function on model CorfoCodeMappingContent
+        """
+        map_content = CorfoCodeMappingContent.objects.get(id_content=200, content='testtest')
+        str_map = str(map_content)
+        self.assertEqual(str_map, '(200) -> testtest')
 
+    def test_CorfoCodeInstitution_str(self):
+        """
+            Test str function on model CorfoCodeInstitution
+        """
+        CorfoCodeInstitution.objects.create(id_institution=300, institution="institution_test")
+        institution = CorfoCodeInstitution.objects.get(id_institution=300,institution="institution_test")
+        str_institution = str(institution)
+        self.assertEqual(str_institution, '(300) -> institution_test')
 
     @override_settings(CORFOGENERATE_URL_TOKEN="aaaaa")
     @override_settings(CORFOGENERATE_CLIENT_ID="aaaaa")
@@ -278,13 +313,7 @@ class TestCorfoGenerateXBlock(GradeTestBase):
         """
             Verify generate_code() is working
         """
-        try:
-            from unittest.case import SkipTest
-            from uchileedxlogin.models import EdxLoginUser
-            EdxLoginUser.objects.create(user=self.student, run='009472337K')
-        except ImportError:
-            self.skipTest("import error uchileedxlogin")
-
+        EdxLoginUser.objects.create(user=self.student, run='009472337K')
         request = TestRequest()
         request.method = 'POST'
         self.xblock.xmodule_runtime.user_is_staff = True
@@ -336,13 +365,7 @@ class TestCorfoGenerateXBlock(GradeTestBase):
         """
             Verify generate_code() is working whern user have passport
         """
-        try:
-            from unittest.case import SkipTest
-            from uchileedxlogin.models import EdxLoginUser
-            EdxLoginUser.objects.create(user=self.student, run='P009472337K')
-        except ImportError:
-            self.skipTest("import error uchileedxlogin")
-
+        EdxLoginUser.objects.create(user=self.student, run='P009472337K')
         request = TestRequest()
         request.method = 'POST'
         self.xblock.xmodule_runtime.user_is_staff = True
@@ -394,13 +417,7 @@ class TestCorfoGenerateXBlock(GradeTestBase):
         """
             Verify generate_code() is working
         """
-        try:
-            from unittest.case import SkipTest
-            from uchileedxlogin.models import EdxLoginUser
-            EdxLoginUser.objects.create(user=self.student, run='CA009472337K')
-        except ImportError:
-            self.skipTest("import error uchileedxlogin")
-
+        EdxLoginUser.objects.create(user=self.student, run='CA009472337K')
         request = TestRequest()
         request.method = 'POST'
         self.xblock.xmodule_runtime.user_is_staff = True
@@ -436,6 +453,109 @@ class TestCorfoGenerateXBlock(GradeTestBase):
             corfouser = CorfoCodeUser.objects.get(user=self.student, mapping_content__id_content=self.xblock.id_content)
             self.assertTrue('code' not in data)
             self.assertFalse(corfouser.corfo_save)
+
+    def test_block_generate_code_wrong_user_id(self):
+        """
+            Verify generate_code() with wrong user_id 
+        """
+        request = TestRequest()
+        request.method = 'POST'
+        self.xblock.xmodule_runtime.user_is_staff = False
+        self.xblock.scope_ids.user_id = '1111'
+        data = json.dumps({})
+        request.body = data.encode()
+        response = self.xblock.generate_code(request)
+        data_response = json.loads(response._app_iter[0].decode())
+        expected_response = {'result':'error', 'status': 5, 'message': 'Usuario no ha iniciado sesión, actualice la página e intente nuevamente, si el problema persiste contáctese con mesa de ayuda <a href="/contact_form" target="_blank">presionando aquí</a>.'}
+        self.assertEqual(data_response,expected_response)
+
+    def test_author_view_render(self):
+        """
+            Check if xblock author template loaded correctly
+        """
+        author_view = self.xblock.author_view()
+        author_view_html = author_view.content
+        self.assertIn(' class="corfogeneratecode_block"', author_view_html)
+    
+    def test_student_view_render(self):
+        """
+            Check if xblock template student loaded correctly
+        """
+        self.xblock.scope_ids.user_id = self.student.id
+        student_view = self.xblock.student_view()
+        student_view_html = student_view.content
+        self.assertIn('class="corfogeneratecode_block"', student_view_html)
+
+    def test_studio_view_render(self,):
+        """
+            Check if xblock studio template loaded correctly
+        """
+        studio_view = self.xblock.studio_view(None)
+        studio_view_html = studio_view.content
+        self.assertIn('id="settings-tab"', studio_view_html)
+    
+    def test_block_course_id(self):
+        """
+            Check if property block_course_id is working properly
+        """
+        result = self.xblock.block_course_id
+        self.assertEqual(result, six.text_type(self.course.id))
+    
+    def test_block_id(self):
+        """
+            Check if property block_id is working properly
+        """
+        result = self.xblock.block_id
+        self.assertEqual(result, six.text_type(self.xblock.scope_ids.usage_id))
+    
+    def test_workbench_scenarios(self):
+        """
+        Checks workbench scenarios title and basic scenario
+        """
+        result_title = 'CorfoGenerateXBlock'
+        basic_scenario = "<corfogeneratecode/>"
+        test_result = self.xblock.workbench_scenarios()
+        self.assertEqual(result_title, test_result[0][0])
+        self.assertIn(basic_scenario, test_result[0][1])
+
+    def test_get_user_rut(self):
+        """
+            Verify get_user_rut() is working with valid rut
+        """
+        EdxLoginUser.objects.create(user=self.student, run='47073090')
+        id_content = 200
+        mapp_content = CorfoCodeMappingContent.objects.get(id_content=id_content)
+        CorfoCodeUser.objects.create(user=self.student, mapping_content=mapp_content, code='U1CODASDFGH', corfo_save=True)
+        self.xblock.scope_ids.user_id = self.student.id
+        self.xblock.id_content =id_content
+        response = self.xblock.get_user_rut()
+        self.assertEqual(response,'47073090')
+
+    def test_get_user_rut_passport(self):
+        """
+            Verify get_user_rut() is working when user have passport
+        """
+        EdxLoginUser.objects.create(user=self.student, run='P009472337K')
+        id_content = 200
+        mapp_content = CorfoCodeMappingContent.objects.get(id_content=id_content)
+        CorfoCodeUser.objects.create(user=self.student, mapping_content=mapp_content, code='U1CODASDFGH', corfo_save=True)
+        self.xblock.scope_ids.user_id = self.student.id
+        self.xblock.id_content =id_content
+        response = self.xblock.get_user_rut()
+        self.assertEqual(response,'P009472337K')
+    
+    def test_get_user_rut_not_valid_rut(self):
+        """
+            Verify generate_code() is working whern user have passport
+        """
+        EdxLoginUser.objects.create(user=self.student, run='N009472337K')
+        id_content = 200
+        mapp_content = CorfoCodeMappingContent.objects.get(id_content=id_content)
+        CorfoCodeUser.objects.create(user=self.student, mapping_content=mapp_content, code='U1CODASDFGH', corfo_save=True)
+        self.xblock.scope_ids.user_id = self.student.id
+        self.xblock.id_content =id_content
+        response = self.xblock.get_user_rut()
+        self.assertEqual(response,'')
 
 class TestCorfoGenerateView(GradeTestBase):
 
@@ -478,14 +598,25 @@ class TestCorfoGenerateView(GradeTestBase):
 
     def test_user_course_passed(self):
         """
-            Verify method user_course_passed() work correctly
+            Verify method user_course_passed works correctly
         """
         with mock_get_score(1, 4):
             self.grade_factory.update(self.student, self.course, force_update_subsections=True)
         with mock_get_score(1, 4):
-            passed, percent = user_course_passed(self.student, self.course.id)            
+            passed, percent = user_course_passed(self.student, self.course.id)
             self.assertEqual(percent, 0.25)
             self.assertFalse(passed)
+    
+    def test_user_course_passed_wrong_course_key(self):
+        """
+            Verify method user_course_passed works correctly with wrong data
+        """
+        with patch('corfogeneratecode.views.CourseGradeFactory') as mock_factory_class:
+            mock_factory_instance = mock_factory_class.return_value
+            mock_factory_instance.read.return_value = None
+            passed, percent = user_course_passed(self.student, 'org.0/course_111/Run_0')
+            self.assertIsNone(percent)
+            self.assertIsNone(passed)
 
     def test_round_half_up(self):
         """
@@ -494,6 +625,37 @@ class TestCorfoGenerateView(GradeTestBase):
         grades = [1,1.1,1.1,1.2,1.2,1.3,1.3,1.4,1.4,1.5,1.5,1.6,1.6,1.7,1.7,1.8,1.8,1.9,1.9,2,2,2.1,2.1,2.2,2.2,2.3,2.3,2.4,2.4,2.5,2.5,2.6,2.6,2.7,2.7,2.8,2.8,2.9,2.9,3,3,3.1,3.1,3.2,3.2,3.3,3.3,3.4,3.4,3.5,3.5,3.6,3.6,3.7,3.7,3.8,3.8,3.9,3.9,4,4,4.1,4.2,4.2,4.3,4.4,4.5,4.5,4.6,4.7,4.8,4.8,4.9,5,5.1,5.1,5.2,5.3,5.4,5.4,5.5,5.6,5.7,5.7,5.8,5.9,6,6,6.1,6.2,6.3,6.3,6.4,6.5,6.6,6.6,6.7,6.8,6.9,6.9,7]
         for i in range(101):
             self.assertEqual(grade_percent_scaled(i/100,0.6), grades[i])
+
+    def test_get_grade_cutoff(self):
+        """
+            Verify method get_grade_cutoff() with wrong course_key
+        """
+        course_key = CourseKey.from_string('org.0/course_111/Run_0')
+        result = get_grade_cutoff(course_key)
+        self.assertIsNone(result)
+
+    @override_settings(CORFOGENERATE_URL_TOKEN="aaaaa")
+    @override_settings(CORFOGENERATE_CLIENT_ID="aaaaa")
+    @override_settings(CORFOGENERATE_CLIENT_SECRET="aaaaa")
+    @override_settings(CORFOGENERATE_URL_VALIDATE="aaaaa")
+    def test_validate_data_anonymous_client(self):
+        """
+            Verify method validate_data works correctly with anonymous_client
+        """
+        anonymous_client = Client()
+        anonymous_client.is_anonymous = True
+        self.assertFalse(validate_data(anonymous_client,self.course.id,'111','1111'))
+
+    @override_settings(CORFOGENERATE_URL_TOKEN="aaaaa")
+    @override_settings(CORFOGENERATE_CLIENT_ID="aaaaa")
+    @override_settings(CORFOGENERATE_CLIENT_SECRET="aaaaa")
+    @override_settings(CORFOGENERATE_URL_VALIDATE="aaaaa")
+    def test_validate_data_content_0(self):
+        """
+            Verify method validate_data works correctly with content_0
+        """
+        self.client.is_anonymous = False
+        self.assertFalse(validate_data(self.client,self.course.id,'111','0'))
 
     @override_settings(CORFOGENERATE_URL_TOKEN="aaaaa")
     @override_settings(CORFOGENERATE_CLIENT_ID="aaaaa")
@@ -585,12 +747,7 @@ class TestCorfoGenerateView(GradeTestBase):
         """
             test views.generate_code(request) when user dont have rut or passport
         """
-        try:
-            from unittest.case import SkipTest
-            from uchileedxlogin.models import EdxLoginUser
-            EdxLoginUser.objects.create(user=self.student, run='CA09472337K')
-        except ImportError:
-            self.skipTest("import error uchileedxlogin")
+        EdxLoginUser.objects.create(user=self.student, run='CA09472337K')
         id_content = 200
         resp_data = {
             "access_token": "IE742SAsEMadiliCt1w582TMnvj98aDyS6L7BXSFP84vto914p77nX",
@@ -619,13 +776,7 @@ class TestCorfoGenerateView(GradeTestBase):
         """
             test views.generate_code(request) when user have wrong edxloginuser.rut
         """
-        try:
-            from unittest.case import SkipTest
-            from uchileedxlogin.models import EdxLoginUser
-            EdxLoginUser.objects.create(user=self.student, run='0947P2337K')
-        except ImportError:
-            self.skipTest("import error uchileedxlogin")
-
+        EdxLoginUser.objects.create(user=self.student, run='0947P2337K')
         id_content = 200
         resp_data = {
             "access_token": "IE742SAsEMadiliCt1w582TMnvj98aDyS6L7BXSFP84vto914p77nX",
@@ -654,12 +805,9 @@ class TestCorfoGenerateView(GradeTestBase):
         """
             test views.generate_code(request) when post validate failed
         """
-        try:
-            from unittest.case import SkipTest
-            from uchileedxlogin.models import EdxLoginUser
-            EdxLoginUser.objects.create(user=self.student, run='009472337K')
-        except ImportError:
-            self.skipTest("import error uchileedxlogin")
+        
+        EdxLoginUser.objects.create(user=self.student, run='009472337K')
+
         
         id_content = 200
         post_data = {
@@ -695,12 +843,9 @@ class TestCorfoGenerateView(GradeTestBase):
         """
             test views.generate_code(request) when post validate with wrong data
         """
-        try:
-            from unittest.case import SkipTest
-            from uchileedxlogin.models import EdxLoginUser
-            EdxLoginUser.objects.create(user=self.student, run='009472337K')
-        except ImportError:
-            self.skipTest("import error uchileedxlogin")
+        
+        EdxLoginUser.objects.create(user=self.student, run='009472337K')
+
 
         id_content = 200
         post_data = {
@@ -837,12 +982,9 @@ class TestCorfoGenerateView(GradeTestBase):
         """
             test views.generate_code(request) when get_grade_cutoff failed
         """
-        try:
-            from unittest.case import SkipTest
-            from uchileedxlogin.models import EdxLoginUser
-            EdxLoginUser.objects.create(user=self.student, run='009472337K')
-        except ImportError:
-            self.skipTest("import error uchileedxlogin")
+        
+        EdxLoginUser.objects.create(user=self.student, run='009472337K')
+
         
         grade_cutoff.return_value = None
         id_content = 200
@@ -874,12 +1016,9 @@ class TestCorfoGenerateView(GradeTestBase):
             test views.generate_code(request) success process
         """
         CorfoCodeInstitution.objects.create(id_institution=3094)
-        try:
-            from unittest.case import SkipTest
-            from uchileedxlogin.models import EdxLoginUser
-            EdxLoginUser.objects.create(user=self.student, run='009472337K')
-        except ImportError:
-            self.skipTest("import error uchileedxlogin")
+        
+        EdxLoginUser.objects.create(user=self.student, run='009472337K')
+
 
         id_content = 200
         post_data = {
@@ -914,12 +1053,9 @@ class TestCorfoGenerateView(GradeTestBase):
             test views.generate_code(request) success process
         """
         CorfoCodeInstitution.objects.create(id_institution=3094)
-        try:
-            from unittest.case import SkipTest
-            from uchileedxlogin.models import EdxLoginUser
-            EdxLoginUser.objects.create(user=self.student, run='P09472337K')
-        except ImportError:
-            self.skipTest("import error uchileedxlogin")
+        
+        EdxLoginUser.objects.create(user=self.student, run='P09472337K')
+
 
         id_content = 200
         post_data = {
@@ -953,12 +1089,9 @@ class TestCorfoGenerateView(GradeTestBase):
         """
             test views.generate_code(request) when post validate without id_institution
         """
-        try:
-            from unittest.case import SkipTest
-            from uchileedxlogin.models import EdxLoginUser
-            EdxLoginUser.objects.create(user=self.student, run='009472337K')
-        except ImportError:
-            self.skipTest("import error uchileedxlogin")
+        
+        EdxLoginUser.objects.create(user=self.student, run='009472337K')
+
 
         id_content = 200
         post_data = {"Message":"An error has occurred."}
@@ -979,3 +1112,42 @@ class TestCorfoGenerateView(GradeTestBase):
             corfouser = CorfoCodeUser.objects.get(user=self.student, mapping_content=mapp_content)
             self.assertFalse(corfouser.corfo_save)
             self.assertTrue(corfouser.code != '')
+
+    @override_settings(CORFOGENERATE_URL_TOKEN="aaaaa")
+    @override_settings(CORFOGENERATE_CLIENT_ID="aaaaa")
+    @override_settings(CORFOGENERATE_CLIENT_SECRET="aaaaa")
+    @patch('requests.post')
+    def test_get_token_post_connection_error(self, post):
+        """
+            test views.get_token when post return exception connection error
+        """
+        post.side_effect = Exception("Connection error")
+        with self.assertLogs('corfogeneratecode.views', level='ERROR') as cm:
+            result = get_token()
+        self.assertEqual(result, {'result': 'error'})
+        self.assertIn('CorfoGenerateCode - Error to get token, exception:', cm.output[0])
+        
+    @override_settings(CORFOGENERATE_URL_VALIDATE="aaaaa")
+    @patch('requests.post')
+    def test_validate_mooc_error_has_ocurred(self, post):
+        """
+            test views.validate_mooc when post return exception An error has occurred.
+        """
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"Message":"An error has occurred."}
+        mock_response.text = str(mock_response.json.return_value)
+
+        post.return_value = mock_response
+        with self.assertLogs('corfogeneratecode.views', level='ERROR') as cm:
+            result = validate_mooc(
+                token='fake-token',
+                code='ABC123',
+                score=90,
+                id_content=1,
+                user_rut='12345678-9',
+                email='test@example.com',
+                id_institution='999'
+            )
+        self.assertIn('CorfoGenerateCode - Error to validate api, user_rut: 12345678-9', cm.output[0])
+        self.assertEqual(result['result'], 'error')

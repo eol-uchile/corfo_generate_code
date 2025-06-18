@@ -1,7 +1,7 @@
 
 import os
 
-from setuptools import setup
+from setuptools import setup, find_packages
 
 def package_data(pkg, roots):
     """Generic function to find package_data.
@@ -20,12 +20,12 @@ def package_data(pkg, roots):
 
 setup(
     name="corfogeneratecode",
-    version="0.0.1",
-    author="Luis Santana",
-    author_email="luis.santana@uchile.cl",
-    description=".",
+    version="1.0.0",
+    author="Oficina EOL UChile",
+    author_email="eol-ing@uchile.cl",
+    description="Allows you to generate corfo code",
     url="https://eol.uchile.cl",
-    packages=["corfogeneratecode"],
+    packages=find_packages(),
     install_requires=[
         'XBlock',
         ],
