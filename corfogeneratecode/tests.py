@@ -378,12 +378,6 @@ class TestCorfoGenerateXBlock(GradeTestBase):
         """
             Verify generate_code_rut() is working
         """
-        try:
-            from unittest.case import SkipTest
-            from uchileedxlogin.models import EdxLoginUser
-        except ImportError:
-            self.skipTest("import error uchileedxlogin")
-
         request = TestRequest()
         request.method = 'POST'
         self.xblock.xmodule_runtime.user_is_staff = True
