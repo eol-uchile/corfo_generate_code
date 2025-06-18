@@ -485,6 +485,29 @@ class TestCorfoGenerateXBlock(GradeTestBase):
         self.assertEqual(data['result'], 'error')
         self.assertEqual(data['status'], 10)
         self.assertFalse(CorfoCodeUser.objects.filter(user=self.student2).exists())
+    
+    def test_block_generate_code_user_doesnt_exist(self):
+        """
+            Verify generate_code_rut() when user doesn't exist
+        """
+        request = TestRequest()
+        request.method = 'POST'
+        self.xblock.xmodule_runtime.user_is_staff = False
+        self.xblock.scope_ids.user_id = '111111111'
+        data = json.dumps({'user_rut': '111111111'})
+        request.body = data.encode()
+        response = self.xblock.generate_code_rut(request)
+        data = json.loads(response._app_iter[0].decode())
+        self.assertEqual(data['result'], 'error')
+        self.assertEqual(data['status'], 5)
+        self.assertFalse(CorfoCodeUser.objects.filter(user=self.student2).exists())
+    
+    def test_validarrut(self):
+        """
+            Verify validarRut() when the verification digit is a k
+        """
+        result = self.xblock.validarRut('9288743-k')
+        self.assertTrue(result)
 
     @override_settings(CORFOGENERATE_URL_TOKEN="aaaaa")
     @override_settings(CORFOGENERATE_CLIENT_ID="aaaaa")
